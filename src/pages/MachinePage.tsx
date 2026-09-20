@@ -6,6 +6,7 @@ import { PartInspector } from '../components/PartInspector'
 import { PartList } from '../components/PartList'
 import { SourceTag } from '../components/SourceTag'
 import { defaultControls, getMachine, machines } from '../data/machines'
+import { getSim } from '../sim/sims'
 import type { Controls, MachineSpec } from '../types'
 
 export function MachinePage() {
@@ -57,15 +58,18 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
             {machine.origin} · {machine.years}
           </p>
 
-          {/* The exhibit explains the machine; this is where you work it. */}
-          <Link
-            to={`/machine/${machine.slug}/run`}
-            className="mt-4 inline-flex items-center gap-2 rounded-sm px-3 py-2 text-[12px] transition-opacity hover:opacity-90"
-            style={{ background: machine.accent, color: '#17171b' }}
-          >
-            <span className="placard">Take the controls</span>
-            <span aria-hidden="true">→</span>
-          </Link>
+          {/* The exhibit explains the machine; this is where you work it.
+              Only offered once an exercise exists for the machine. */}
+          {getSim(machine.slug) && (
+            <Link
+              to={`/machine/${machine.slug}/run`}
+              className="mt-4 inline-flex items-center gap-2 rounded-sm px-3 py-2 text-[12px] transition-opacity hover:opacity-90"
+              style={{ background: machine.accent, color: '#17171b' }}
+            >
+              <span className="placard">Take the controls</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5">
