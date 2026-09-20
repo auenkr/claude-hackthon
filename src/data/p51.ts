@@ -30,6 +30,18 @@ const INFER: Source = {
   note: 'Section shapes between published stations are interpolated. The overall envelope is sourced; the curve between ribs is our reconstruction.',
 }
 
+const MARKINGS: Source = {
+  kind: 'text',
+  citation: 'AEAF Operation Memorandum No. 23 (1944); AN-I-9b national insignia',
+  note: 'Five alternating bands eighteen inches wide for single-engined aircraft, applied before the Normandy landings; the star-and-bar to the specification in force after the red surround was dropped in August 1943.',
+}
+
+const UNIT: Source = {
+  kind: 'artifact',
+  citation: 'Photographs of 363rd Fighter Squadron, 357th FG, Leiston, 1944',
+  note: 'The squadron code B6 and the bare-metal finish with olive anti-glare panel are taken from wartime photographs of the unit, not from any one surviving airframe.',
+}
+
 export const p51: MachineSpec = {
   slug: 'p51-mustang',
   name: 'P-51D Mustang',
@@ -126,6 +138,17 @@ export const p51: MachineSpec = {
       unit: '°',
       hint: 'Torque from 1,490 hp pulls the nose left on takeoff; the rudder is how the pilot argues back.',
     },
+    {
+      id: 'radiator',
+      label: 'Radiator exit door',
+      kind: 'slider',
+      min: 0,
+      max: 25,
+      step: 1,
+      value: 6,
+      unit: '°',
+      hint: 'The door at the back of the belly duct sets how much air the radiators get. Open it and the aeroplane cools; open it too far and it costs you speed.',
+    },
   ],
   parts: [
     {
@@ -168,6 +191,20 @@ export const p51: MachineSpec = {
       dimensions: [
         { label: 'Stacks', value: '12, one per cylinder', source: SURVEY },
         { label: 'Arrangement', value: 'Six per bank, swept aft', source: SURVEY },
+        { label: 'Outlet', value: 'Flattened fishtail, unshrouded', source: SURVEY },
+      ],
+    },
+    {
+      id: 'carb-scoop',
+      name: 'Carburettor air intake',
+      group: 'Powerplant',
+      blurb:
+        'The duct under the nose that feeds the supercharger. It takes its air from below the spinner, clear of the fuselage boundary layer, and on the ground a filter door could be swung across it to keep grit out of the engine.',
+      explode: [0, -1.6, 1.2],
+      dimensions: [
+        { label: 'Feeds', value: 'Bendix-Stromberg PD-18A1 injection carburettor', source: DEAN },
+        { label: 'Position', value: 'Under the nose, aft of the spinner', source: SURVEY },
+        { label: 'Duct area', value: '≈0.075 m² at the throat', source: INFER },
       ],
     },
     {
@@ -182,6 +219,36 @@ export const p51: MachineSpec = {
         { label: 'Height on gear', value: '4.17 m · 13 ft 8 in', source: SPEC },
         { label: 'Maximum width', value: '0.91 m', source: INFER },
         { label: 'Construction', value: 'Aluminium semi-monocoque', source: DEAN },
+        { label: 'Finish', value: 'Bare metal, olive drab anti-glare panel', source: UNIT },
+        { label: 'Squadron code', value: 'B6, 363rd FS', source: UNIT },
+        { label: 'Invasion stripes', value: '5 bands × 18 in, rear fuselage', source: MARKINGS },
+        { label: 'National insignia', value: 'Star-and-bar, blue surround', source: MARKINGS },
+      ],
+    },
+    {
+      id: 'cockpit',
+      name: 'Cockpit',
+      group: 'Structure',
+      blurb:
+        'A seat on the wing centre section, an instrument panel, a stick between the knees and a slab of face-hardened steel behind the shoulders. The floor is the top of the fuselage fuel tanks, which is a thought best not dwelt on.',
+      explode: [0, 2.4, 0.2],
+      dimensions: [
+        { label: 'Pilot armour', value: '5/16 in face-hardened plate, aft of seat', source: DEAN },
+        { label: 'Seat', value: 'Bucket seat for a seat-pack parachute', source: SURVEY },
+        { label: 'Stick travel', value: 'Elevator 30° up, 20° down', source: POH },
+      ],
+    },
+    {
+      id: 'gunsight',
+      name: 'K-14A gyro gunsight',
+      group: 'Armament',
+      blurb:
+        'A computing sight. The pilot dialled in his target’s wingspan and framed it with a twist grip, and the gyro worked out how far ahead of it to shoot. It roughly doubled the number of hits an average pilot scored.',
+      explode: [0, 1.9, 0.9],
+      dimensions: [
+        { label: 'Type', value: 'K-14A, after the British Mk IIC', source: DEAN },
+        { label: 'Fitted from', value: 'P-51D-10 production onward', source: DEAN },
+        { label: 'Span setting', value: '9–36 m target wingspan', source: POH },
       ],
     },
     {
@@ -210,6 +277,8 @@ export const p51: MachineSpec = {
         { label: 'Section', value: 'NAA/NACA 45-100, 15.1% root', source: DEAN },
         { label: 'Dihedral', value: '5°', source: SPEC },
         { label: 'Washout', value: '1° tip down', source: INFER },
+        { label: 'Surface', value: 'Filled, puttied and painted, not left bare', source: DEAN },
+        { label: 'Wing stripes', value: '5 bands × 18 in, above and below', source: MARKINGS },
       ],
     },
     {
@@ -261,6 +330,10 @@ export const p51: MachineSpec = {
         { label: 'Ammunition', value: '1,880 rounds total', source: POH },
         { label: 'Inboard pair', value: '400 rounds per gun', source: POH },
         { label: 'Outer pairs', value: '270 rounds per gun', source: POH },
+        { label: 'Rate of fire', value: '≈800 rounds per minute per gun', source: DEAN },
+        { label: 'Muzzle velocity', value: '856 m/s · 2,810 ft/s', source: DEAN },
+        { label: 'Harmonisation', value: '250 yd · 229 m, converging', source: POH },
+        { label: 'Muzzles', value: 'Staggered in the leading edge', source: SURVEY },
       ],
     },
     {
@@ -298,6 +371,8 @@ export const p51: MachineSpec = {
         { label: 'Track', value: '3.61 m · 11 ft 10 in', source: SPEC },
         { label: 'Retraction', value: 'Inward into wing, hydraulic', source: POH },
         { label: 'Main wheel', value: '27 in smooth contour', source: SURVEY },
+        { label: 'Leg', value: 'Oleo-pneumatic, torque scissors, drag brace', source: SURVEY },
+        { label: 'Placard speed', value: '170 mph IAS', source: POH },
       ],
     },
     {
@@ -310,8 +385,34 @@ export const p51: MachineSpec = {
       dimensions: [
         { label: 'Type', value: 'Retractable, steerable, lockable', source: POH },
         { label: 'Wheel', value: '12.5 in', source: SURVEY },
+        { label: 'Doors', value: 'Twin, mechanically linked to the leg', source: SURVEY },
+      ],
+    },
+    {
+      id: 'aerial',
+      name: 'Aerial mast and wire',
+      group: 'Structure',
+      blurb:
+        'The mast behind the hood and the wire running back to the fin are the SCR-522 VHF set. A fighter squadron is a formation held together by radio; without this the Mustang is one aeroplane rather than four.',
+      explode: [0, 1.4, -1.2],
+      dimensions: [
+        { label: 'Set', value: 'SCR-522 VHF, four channels', source: DEAN },
+        { label: 'Aerial', value: 'Mast aft of the hood, wire to the fin', source: SURVEY },
+        { label: 'IFF', value: 'Whip under the starboard wing root', source: SURVEY },
+      ],
+    },
+    {
+      id: 'pitot',
+      name: 'Pitot head',
+      group: 'Aerodynamics',
+      blurb:
+        'A tube on a mast under the port wing, out where the airflow has not yet been disturbed by anything. Every airspeed the pilot reads, and every limit in the manual, is the pressure difference measured here.',
+      explode: [-1.8, -1.2, 0.6],
+      dimensions: [
+        { label: 'Position', value: 'Under the port wing, outboard', source: SURVEY },
+        { label: 'Measures', value: 'Total minus static pressure', source: POH },
       ],
     },
   ],
-  bibliography: [POH, SPEC, DEAN, SURVEY, INFER],
+  bibliography: [POH, SPEC, DEAN, SURVEY, INFER, MARKINGS, UNIT],
 }

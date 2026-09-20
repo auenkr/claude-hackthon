@@ -3,7 +3,7 @@ import type { Controls, Dimension, Source } from '../types'
 import type { Keyboard } from './keyboard'
 import type { Readout, Sim, SimDef, ViewName } from './types'
 import { G, RHO, setAttitude } from './flight'
-import { AVENUE, boulevard as field } from './terrain'
+import { AVENUE, boulevard as field } from './fields/boulevard'
 import { VELO } from '../three/stance'
 
 /**

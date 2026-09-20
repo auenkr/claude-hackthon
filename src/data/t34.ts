@@ -65,7 +65,7 @@ export const t34: MachineSpec = {
       step: 1,
       value: 0,
       unit: 'km/h',
-      hint: 'Drive sprockets sit at the rear. With 830 mm road wheels, 55 km/h is about 350 rpm at the sprocket.',
+      hint: 'Drive sprockets sit at the rear. With 830 mm road wheels, 55 km/h turns them at about 350 rpm, and the track runs at 15 m/s.',
     },
     {
       id: 'traverse',
@@ -119,11 +119,27 @@ export const t34: MachineSpec = {
       explode: [0, -0.9, 0],
       dimensions: [
         { label: 'Length', value: '6.10 m', source: MANUAL },
-        { label: 'Width', value: '3.00 m', source: MANUAL },
-        { label: 'Height to roof', value: '1.72 m', source: INFER },
+        { label: 'Width over tracks', value: '3.00 m', source: MANUAL },
+        { label: 'Width over sponsons', value: '2.80 m', source: KUBINKA },
+        { label: 'Height to roof', value: '1.50 m', source: INFER },
         { label: 'Glacis', value: '45 mm at 60° from vertical', source: MANUAL },
         { label: 'Hull sides', value: '45 mm at 40°', source: TM },
+        { label: 'Lower front plate', value: '45 mm at 53°', source: TM },
         { label: 'Ground clearance', value: '0.40 m', source: MANUAL },
+      ],
+    },
+    {
+      id: 'deck',
+      name: 'Engine deck',
+      group: 'Powerplant',
+      blurb:
+        'A central hatch over the V-12, an air intake grille either side of it, and the great sloping bank of radiator louvres at the tail. It is the least protected surface on the tank and the one every photograph of tank riders shows them sitting on.',
+      explode: [0, 1.5, -2.4],
+      dimensions: [
+        { label: 'Roof plate', value: '20 mm', source: TM },
+        { label: 'Rear louvres', value: 'Over twin radiators, adjustable', source: MANUAL },
+        { label: 'Exhausts', value: '2, through the rear plate', source: KUBINKA },
+        { label: 'Cooling', value: 'Centrifugal fan on the flywheel', source: MANUAL },
       ],
     },
     {
@@ -152,7 +168,10 @@ export const t34: MachineSpec = {
       dimensions: [
         { label: 'Calibre', value: '85 mm', source: MANUAL },
         { label: 'Barrel length', value: 'L/54.6 · 4.64 m', source: MANUAL },
-        { label: 'Muzzle velocity', value: '792 m/s, BR-365 APHE', source: TM },
+        { label: 'Bore axis', value: '2.02 m above the ground', source: INFER },
+        { label: 'Armour-piercing', value: 'BR-365, 9.2 kg at 792 m/s', source: TM },
+        { label: 'High explosive', value: 'O-365K, 9.5 kg at 793 m/s', source: ZALOGA },
+        { label: 'Recoil stroke', value: '330 mm', source: MANUAL },
         { label: 'Elevation', value: '−5° to +25°', source: MANUAL },
         { label: 'Ammunition', value: '55 rounds stowed', source: MANUAL },
       ],
@@ -167,6 +186,7 @@ export const t34: MachineSpec = {
       dimensions: [
         { label: 'Thickness', value: '90 mm cast', source: TM },
         { label: 'Coaxial', value: '7.62 mm DT machine gun', source: MANUAL },
+        { label: 'Movement', value: 'Elevates with the gun about the trunnions', source: KUBINKA },
       ],
     },
     {
@@ -205,8 +225,9 @@ export const t34: MachineSpec = {
       explode: [1.8, 0, -1.6],
       dimensions: [
         { label: 'Position', value: 'Rear', source: MANUAL },
-        { label: 'Engagement', value: 'Roller teeth on track pins', source: KUBINKA },
-        { label: 'Speed at 55 km/h', value: '≈ 350 rpm', source: INFER },
+        { label: 'Engagement', value: '6 roller teeth on the track pins', source: KUBINKA },
+        { label: 'Pitch radius', value: '0.33 m — 2.06 m a turn', source: INFER },
+        { label: 'Speed at 55 km/h', value: '≈ 440 rpm', source: INFER },
       ],
     },
     {
@@ -214,13 +235,27 @@ export const t34: MachineSpec = {
       name: 'Road wheels',
       group: 'Running gear',
       blurb:
-        'Five 830 mm wheels a side on Christie suspension: each wheel rides on a swing arm against a long coil spring housed vertically inside the hull side. The wheels are big enough that no return rollers are needed — the top run of track simply rides on them.',
+        'Five 830 mm wheels a side, each a pair of dished steel spiders with a solid rubber tyre and a gap between them for the track’s guide horns. The wheels are big enough that no return rollers are needed — the top run of track simply rides on them.',
       explode: [2.6, -0.4, 0],
       dimensions: [
         { label: 'Wheels', value: '5 per side', source: MANUAL },
         { label: 'Diameter', value: '830 mm', source: MANUAL },
-        { label: 'Suspension', value: 'Christie, vertical coil springs', source: MANUAL },
+        { label: 'Contact length', value: '3.90 m on the ground', source: INFER },
         { label: 'Return rollers', value: 'None — track rides on wheels', source: KUBINKA },
+      ],
+    },
+    {
+      id: 'suspension',
+      name: 'Christie suspension',
+      group: 'Running gear',
+      blurb:
+        'Each road wheel hangs on a swing arm bearing against a long coil spring set vertically inside the hull side. It is the reason for the sloped sponson, it eats the volume the fighting compartment would otherwise have, and it is why a T-34 can cross ground at speed that stops heavier tanks dead.',
+      explode: [1.4, -0.2, 0],
+      dimensions: [
+        { label: 'Type', value: 'Christie, independent', source: MANUAL },
+        { label: 'Springs', value: '10 vertical coils, in the hull sides', source: MANUAL },
+        { label: 'Wheel travel', value: '≈ 140 mm', source: INFER },
+        { label: 'Cost', value: 'The sponson volume it occupies', source: ZALOGA },
       ],
     },
     {
@@ -246,19 +281,34 @@ export const t34: MachineSpec = {
         { label: 'Width', value: '500 mm', source: MANUAL },
         { label: 'Links per track', value: '72', source: MANUAL },
         { label: 'Pitch', value: '172 mm', source: MANUAL },
+        { label: 'Pattern', value: 'Flat and guide-horn links, alternating', source: KUBINKA },
         { label: 'Ground pressure', value: '0.83 kg/cm²', source: TM },
       ],
     },
     {
       id: 'fenders',
-      name: 'Fenders and stowage',
+      name: 'Mudguards',
       group: 'Structure',
       blurb:
-        'Thin sheet mudguards carrying external fuel drums, spare track links and a tow cable. Almost everything bolted here is expendable and frequently missing.',
+        'Thin unarmoured sheet over the tracks, bracketed off the sponson. The front corners are crumpled on almost every photographed vehicle: they are the first thing to meet a tree, a wall or another tank, and nobody straightened them.',
       explode: [2.2, 0.8, 0],
       dimensions: [
         { label: 'Material', value: 'Thin sheet, unarmoured', source: KUBINKA },
-        { label: 'External fuel', value: '2 × 90 L drums, rear', source: MANUAL },
+        { label: 'Width', value: '0.60 m over the track', source: INFER },
+      ],
+    },
+    {
+      id: 'stowage',
+      name: 'External stowage',
+      group: 'Structure',
+      blurb:
+        'Two cylindrical fuel tanks a side, a tow cable, a two-man saw, a crowbar, tool boxes and spare track links. None of it is armoured, all of it is expendable, and a great deal of it is missing from any given vehicle by the second week of an offensive.',
+      explode: [3.0, 0.7, 0],
+      dimensions: [
+        { label: 'External fuel', value: '4 × 90 L cylindrical tanks', source: MANUAL },
+        { label: 'Road range', value: '300 km, 400 km with the externals', source: TM },
+        { label: 'Tools', value: 'Saw, crowbar, two boxes, tow cable', source: KUBINKA },
+        { label: 'Spare track', value: 'Links on the glacis and rear fender', source: KUBINKA },
       ],
     },
     {
@@ -271,6 +321,8 @@ export const t34: MachineSpec = {
       dimensions: [
         { label: 'Weapon', value: '7.62 mm DT', source: MANUAL },
         { label: 'Mount', value: 'Ball, right front plate', source: KUBINKA },
+        { label: 'Ammunition', value: '1,890 rounds in 31 magazines, both guns', source: MANUAL },
+        { label: 'Rate of fire', value: '600 rounds a minute', source: TM },
       ],
     },
   ],

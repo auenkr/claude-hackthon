@@ -44,9 +44,6 @@ export function p51MainRise(pitch: number) {
   )
 }
 
-/** Height of the Flyer's skid runners below its datum: its parked height. */
-export const FLYER_SKID = 0.11
-
 /**
  * The velocipede's wheels: 36 and 32 inch, 1.17 m apart, with the datum on
  * the ground midway between the contact points. The steering axis runs

@@ -1,98 +1,48 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { Mat, Part } from './Part'
+import { Part } from './Part'
+import { Skin } from './t34/Skin'
+import { buildT34, turretNumberTexture } from './t34/parts'
+import { sampleBelt } from './geometry'
 import {
-  beltPath,
-  loft,
-  merge,
-  roundedRing,
-  sampleBelt,
-  strut,
-  type Circle,
-} from './geometry'
+  ARM,
+  CUPOLA,
+  DEG,
+  GLACIS,
+  IDLER,
+  LOADER,
+  NOSE,
+  NOSE_Y,
+  RING_Y,
+  RING_Z,
+  SPROCKET,
+  TRACK_X,
+  TRUNNION,
+  TURRET_H,
+  WHEEL_R,
+  WHEEL_Z,
+} from './t34/dims'
 import type { Controls } from '../types'
 
 /**
  * T-34-85, Factory No. 183, Model 1944.
  *
- * Model axes: +Z forward over the glacis, +X to starboard, +Y up, metres.
- * The hull is lofted from cross-sections whose plate angles come straight
- * from the armour schedule.
+ * Model axes: +Z forward over the glacis, +Y up, metres — which makes +X the
+ * port side. The driver's hatch, the commander's cupola and the tow cable are
+ * therefore all at positive X, and the hull machine gun, the loader's hatch
+ * and the tool boxes at negative X, exactly as they are on the vehicle.
+ *
+ * Nothing here is keyframed. The wheels turn at road speed over their own
+ * radius, the track links are laid along an arc-length parametrisation of the
+ * belt at the tank's own travel, the swing arms follow the wheels they carry,
+ * and the gun recoils 330 mm and comes back on its recuperator.
  */
 
-const DEG = Math.PI / 180
-
-const ARMOUR = { color: '#5b6350', metalness: 0.62, roughness: 0.66 }
-const CAST = { color: '#646b58', metalness: 0.55, roughness: 0.78 }
-const STEEL = { color: '#4a4d52', metalness: 0.9, roughness: 0.38 }
-const TRACK = { color: '#3f4248', metalness: 0.85, roughness: 0.5 }
-const RUBBER = { color: '#1d1d20', metalness: 0.1, roughness: 0.9 }
-
-// --- Hull envelope ----------------------------------------------------------
-const FLOOR = 0.4 // ground clearance, per the manual
-const LOWER_TOP = 0.83 // top of the vertical lower side
-const SPONSON_TOP = 1.43 // top of the 40° sponson side
-const DECK = 1.6 // hull roof
-const HW_LOWER = 0.93
-const HW_SPONSON = 1.43
-const HW_DECK = 1.4
-
-const NOSE = 3.05
-const STERN = -3.05
-
-interface HullStation {
-  z: number
-  floor: number
-  deck: number
-  /** Scales the section's width, for the tapered nose and tail. */
-  pinch?: number
-}
-
-// Glacis at 60° from vertical climbs from the nose joint to the deck edge;
-// the rear deck slopes away over the transmission.
-const HULL: HullStation[] = [
-  { z: NOSE, floor: LOWER_TOP, deck: LOWER_TOP + 0.01, pinch: 0.86 },
-  { z: 2.85, floor: 0.62, deck: 1.0, pinch: 0.92 },
-  { z: 2.55, floor: FLOOR, deck: 1.16, pinch: 0.97 },
-  { z: 2.1, floor: FLOOR, deck: 1.38, pinch: 1 },
-  { z: 1.72, floor: FLOOR, deck: DECK, pinch: 1 },
-  { z: 0.6, floor: FLOOR, deck: DECK, pinch: 1 },
-  { z: -0.6, floor: FLOOR, deck: DECK, pinch: 1 },
-  { z: -1.4, floor: FLOOR, deck: DECK, pinch: 1 },
-  { z: -2.3, floor: FLOOR, deck: 1.32, pinch: 1 },
-  { z: -2.65, floor: FLOOR, deck: 1.14, pinch: 0.99 },
-  { z: STERN, floor: 0.72, deck: 1.0, pinch: 0.95 },
-]
-
-/** One hull cross-section: lower vertical sides, 40° sponsons, flat roof. */
-function hullRing(st: HullStation) {
-  const k = st.pinch ?? 1
-  const deck = st.deck
-  // Collapse the sponson break as the section runs out at nose and tail.
-  const sponson = Math.min(SPONSON_TOP, Math.max(st.floor, deck - 0.17))
-  const lower = Math.min(LOWER_TOP, Math.max(st.floor, sponson - 0.01))
-  const pts: [number, number][] = [
-    [HW_LOWER * k, st.floor],
-    [HW_LOWER * k, lower],
-    [HW_SPONSON * k, sponson],
-    [HW_DECK * k, deck],
-    [-HW_DECK * k, deck],
-    [-HW_SPONSON * k, sponson],
-    [-HW_LOWER * k, lower],
-    [-HW_LOWER * k, st.floor],
-  ]
-  return pts.map(([x, y]) => new THREE.Vector3(x, y, st.z))
-}
-
-// --- Running gear -----------------------------------------------------------
-const WHEEL_R = 0.415 // 830 mm diameter
-const WHEEL_Z = [2.05, 0.98, 0.02, -0.94, -1.9]
-const IDLER = { z: 2.6, y: 0.44, r: 0.37 }
-const SPROCKET = { z: -2.62, y: 0.52, r: 0.32 }
-const TRACK_X = 1.25
-const TRACK_W = 0.5
-const LINKS = 72
+/** Hinge line of the driver's hatch, measured up the glacis from the nose. */
+const HATCH_V = 1.04
+/** Recoil stroke of the ZiS-S-53. */
+const RECOIL = 0.33
 
 export function T34({ controls }: { controls: Controls }) {
   const speed = controls.speed ?? 0
@@ -100,127 +50,67 @@ export function T34({ controls }: { controls: Controls }) {
   const elevation = (controls.elevation ?? 0) * DEG
   const rough = (controls.terrain ?? 0) / 100
   const hatchesOpen = (controls.hatches ?? 0) > 0.5
+  const shots = controls.shots ?? 0
+  const mgFiring = (controls.mg ?? 0) > 0.5
 
-  const geo = useMemo(() => {
-    const hull = loft(HULL.map(hullRing))
+  const geo = useMemo(() => buildT34(), [])
+  const number = useMemo(() => turretNumberTexture('213'), [])
 
-    // Turret: a casting that narrows 20° as it rises, with a rear bustle.
-    const turretProfile = (y: number, shrink: number) =>
-      roundedRing(
-        [
-          { angle: Math.PI / 2, radius: 1.05 - shrink },
-          { angle: Math.PI / 4, radius: 1.12 - shrink },
-          { angle: 0, radius: 1.1 - shrink },
-          { angle: -Math.PI / 4, radius: 1.24 - shrink },
-          { angle: -Math.PI / 2, radius: 1.34 - shrink },
-          { angle: (-3 * Math.PI) / 4, radius: 1.24 - shrink },
-          { angle: Math.PI, radius: 1.1 - shrink },
-          { angle: (3 * Math.PI) / 4, radius: 1.12 - shrink },
-        ],
-        48,
-        y,
-      )
-    const turret = loft([
-      turretProfile(0, 0.06),
-      turretProfile(0.06, 0),
-      turretProfile(0.55, 0.19),
-      turretProfile(0.92, 0.3),
-      turretProfile(1.0, 0.38),
-    ])
-
-    // Road wheel: twin dished discs with a rubber tyre.
-    const wheelRings: THREE.Vector3[][] = []
-    for (const [r, w] of [
-      [0.12, 0.13],
-      [0.3, 0.14],
-      [WHEEL_R - 0.07, 0.14],
-      [WHEEL_R, 0.13],
-      [WHEEL_R, -0.13],
-      [WHEEL_R - 0.07, -0.14],
-      [0.3, -0.14],
-      [0.12, -0.13],
-    ] as [number, number][]) {
-      const ring: THREE.Vector3[] = []
-      for (let i = 0; i < 24; i++) {
-        const t = (i / 24) * Math.PI * 2
-        ring.push(new THREE.Vector3(w, Math.sin(t) * r, Math.cos(t) * r))
-      }
-      wheelRings.push(ring)
-    }
-    const wheel = loft(wheelRings)
-
-    // The belt: idler, over the road wheels, round the sprocket, back along
-    // the ground. Each wheel appears twice — once for the top run, once for
-    // the bottom — which is exactly how the track actually lies.
-    const circles: Circle[] = [
-      { x: IDLER.z, y: IDLER.y, r: IDLER.r },
-      ...WHEEL_Z.map((z) => ({ x: z, y: WHEEL_R, r: WHEEL_R })),
-      { x: SPROCKET.z, y: SPROCKET.y, r: SPROCKET.r },
-      ...[...WHEEL_Z].reverse().map((z) => ({ x: z, y: WHEEL_R, r: WHEEL_R })),
-    ]
-    const belt = beltPath(circles, 8)
-
-    // One track link, centred on the origin, lying flat.
-    const pitch = belt.length / LINKS
-    const link = merge([
-      boxGeo(TRACK_W, 0.035, pitch * 0.92),
-      boxGeo(0.07, 0.11, pitch * 0.3, 0, 0.06, 0),
-    ])
-
-    // Sprocket: roller teeth that engage the track pins.
-    const teeth: THREE.BufferGeometry[] = []
-    for (let i = 0; i < 18; i++) {
-      const t = (i / 18) * Math.PI * 2
-      teeth.push(
-        strut(
-          [-0.11, Math.sin(t) * SPROCKET.r, Math.cos(t) * SPROCKET.r],
-          [0.11, Math.sin(t) * SPROCKET.r, Math.cos(t) * SPROCKET.r],
-          0.035,
-        ),
-      )
-    }
-    const sprocket = merge([
-      ...teeth,
-      cylGeo(0.26, 0.09, 20, Math.PI / 2),
-      cylGeo(0.1, 0.24, 12, Math.PI / 2),
-    ])
-
-    return { hull, turret, wheel, belt, link, pitch, sprocket }
-  }, [])
-
-  // --- Animation ------------------------------------------------------------
-  const tracks = useRef<(THREE.InstancedMesh | null)[]>([null, null])
+  // --- Refs the frame loop drives ------------------------------------------
+  const body = useRef<THREE.Group>(null)
   const wheels = useRef<(THREE.Group | null)[]>([])
+  const arms = useRef<(THREE.Group | null)[]>([])
   const sprockets = useRef<(THREE.Group | null)[]>([])
   const idlers = useRef<(THREE.Group | null)[]>([])
-  const body = useRef<THREE.Group>(null)
-  const hatch = useRef<THREE.Group>(null)
+  const flats = useRef<(THREE.InstancedMesh | null)[]>([null, null])
+  const horns = useRef<(THREE.InstancedMesh | null)[]>([null, null])
+  const driver = useRef<THREE.Group>(null)
+  const leafA = useRef<THREE.Group>(null)
+  const leafB = useRef<THREE.Group>(null)
+  const loader = useRef<THREE.Group>(null)
+  const recoil = useRef<THREE.Group>(null)
+  const flash = useRef<THREE.Mesh>(null)
+  const flashLight = useRef<THREE.PointLight>(null)
+  const mgFlash = useRef<THREE.Mesh>(null)
+
   const travel = useRef(0)
   const clock = useRef(0)
+  const kick = useRef(0)
+  const lastShot = useRef(shots)
   const dummy = useMemo(() => new THREE.Object3D(), [])
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const k = 1 - Math.exp(-6 * dt)
-    const v = speed / 3.6 // km/h to m/s
+    const v = speed / 3.6
     travel.current += v * dt
     clock.current += dt * (0.6 + v * 0.22)
+
+    // A round has gone off: start the recoil stroke and the flash.
+    if (shots !== lastShot.current) {
+      lastShot.current = shots
+      kick.current = 1
+    }
+    kick.current = Math.max(0, kick.current - dt * 2.2)
 
     // Christie springs: each wheel rides its own bump, phased down the hull.
     const bump = (i: number) =>
       rough *
-      0.09 *
-      (Math.sin(clock.current * 3.1 + i * 1.9) +
-        0.6 * Math.sin(clock.current * 5.7 + i * 3.3))
+      0.085 *
+      (Math.sin(clock.current * 3.1 + i * 1.9) + 0.6 * Math.sin(clock.current * 5.7 + i * 3.3))
 
     wheels.current.forEach((g, i) => {
       if (!g) return
       g.position.y = WHEEL_R + bump(i % 5)
       g.rotation.x -= (v / WHEEL_R) * dt
     })
+    arms.current.forEach((g, i) => {
+      if (!g) return
+      g.rotation.x = -Math.atan2(ARM.dy - bump(i % 5), ARM.dz)
+    })
     for (const g of sprockets.current) if (g) g.rotation.x -= (v / SPROCKET.r) * dt
     for (const g of idlers.current) if (g) g.rotation.x -= (v / IDLER.r) * dt
 
-    // The hull rides the average of the wheels, and pitches with the ends.
+    // The hull rides the average of the wheels and pitches with the ends.
     if (body.current) {
       const front = bump(0)
       const rear = bump(4)
@@ -229,209 +119,248 @@ export function T34({ controls }: { controls: Controls }) {
       body.current.rotation.z += (bump(2) * 0.05 - body.current.rotation.z) * k
     }
 
-    if (hatch.current) {
-      const target = hatchesOpen ? -115 * DEG : 0
-      hatch.current.rotation.x += (target - hatch.current.rotation.x) * k
+    // Hatches. The driver's swings up and forward off its glacis plane; the
+    // cupola's splits into two leaves that fold back either side.
+    const open = hatchesOpen ? 1 : 0
+    if (driver.current) {
+      const target = GLACIS - open * 78 * DEG
+      driver.current.rotation.x += (target - driver.current.rotation.x) * k
+    }
+    if (leafA.current) leafA.current.rotation.z += (open * 100 * DEG - leafA.current.rotation.z) * k
+    if (leafB.current) leafB.current.rotation.z += (-open * 100 * DEG - leafB.current.rotation.z) * k
+    if (loader.current) loader.current.rotation.x += (-open * 95 * DEG - loader.current.rotation.x) * k
+
+    // Recoil: out fast, back slowly, which is what the recuperator does.
+    if (recoil.current) {
+      const t = kick.current
+      const stroke = t > 0.72 ? (1 - t) / 0.28 : t / 0.72
+      recoil.current.position.z = -RECOIL * stroke
+    }
+
+    // Muzzle flash: two frames of it, but that is all a flash ever is.
+    const blast = Math.max(0, kick.current - 0.82) / 0.18
+    if (flash.current) {
+      flash.current.visible = blast > 0.01
+      flash.current.scale.setScalar(0.35 + blast * 1.5)
+      const mat = flash.current.material as THREE.MeshBasicMaterial
+      mat.opacity = blast
+    }
+    if (flashLight.current) flashLight.current.intensity = blast * 260
+
+    if (mgFlash.current) {
+      // The DT is firing at ten rounds a second; flicker it off the clock
+      // rather than off a counter nothing else needs.
+      const lit = mgFiring && Math.sin(state.clock.elapsedTime * 62) > 0
+      mgFlash.current.visible = lit
+      mgFlash.current.scale.setScalar(0.5 + Math.random() * 0.5)
     }
 
     // Lay the links along the belt, offset by how far the tank has driven.
-    for (const mesh of tracks.current) {
-      if (!mesh) continue
-      for (let i = 0; i < LINKS; i++) {
+    for (let s = 0; s < 2; s++) {
+      const flat = flats.current[s]
+      const horn = horns.current[s]
+      if (!flat || !horn) continue
+      let a = 0
+      let b = 0
+      for (let i = 0; i < geo.links; i++) {
         const p = sampleBelt(geo.belt, i * geo.pitch + travel.current)
         dummy.position.set(0, p.y, p.x)
         dummy.rotation.set(-p.angle, 0, 0)
         dummy.updateMatrix()
-        mesh.setMatrixAt(i, dummy.matrix)
+        if (i % 2 === 0) flat.setMatrixAt(a++, dummy.matrix)
+        else horn.setMatrixAt(b++, dummy.matrix)
       }
-      mesh.instanceMatrix.needsUpdate = true
+      flat.instanceMatrix.needsUpdate = true
+      horn.instanceMatrix.needsUpdate = true
     }
   })
 
   const sides = [1, -1]
+  const half = geo.links / 2
 
   return (
     <group ref={body}>
-      {/* ------------------------------------------------------------------ */}
+      {/* --- Hull ------------------------------------------------------- */}
       <Part id="hull">
         <mesh geometry={geo.hull} castShadow receiveShadow>
-          <Mat {...ARMOUR} />
+          <Skin />
         </mesh>
-        {/* Driver's hatch in the glacis. */}
-        <mesh position={[-0.44, 1.26, 2.24]} rotation={[-60 * DEG, 0, 0]}>
-          <boxGeometry args={[0.6, 0.56, 0.05]} />
-          <Mat {...ARMOUR} />
-        </mesh>
-        {/* Engine deck louvres. */}
-        {[0, 1, 2, 3, 4].map((i) => (
-          <mesh key={i} position={[0, 1.6, -1.55 - i * 0.16]} rotation={[0.35, 0, 0]}>
-            <boxGeometry args={[1.5, 0.02, 0.1]} />
-            <Mat {...STEEL} />
+        <group
+          ref={driver}
+          position={[
+            0.44,
+            NOSE_Y + HATCH_V * Math.sin(GLACIS) + 0.03 * Math.cos(GLACIS),
+            NOSE - HATCH_V * Math.cos(GLACIS) + 0.03 * Math.sin(GLACIS),
+          ]}
+          rotation={[GLACIS, 0, 0]}
+        >
+          <mesh geometry={geo.driverHatch} castShadow>
+            <Skin />
           </mesh>
-        ))}
-        {/* Turret ring collar. */}
-        <mesh position={[0, 1.57, 0.1]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.82, 0.82, 0.09, 40]} />
-          <Mat {...STEEL} />
+        </group>
+      </Part>
+
+      <Part id="deck">
+        <mesh geometry={geo.deck} castShadow receiveShadow>
+          <Skin />
         </mesh>
       </Part>
 
       <Part id="hullmg">
-        <mesh position={[0.46, 1.2, 2.32]} rotation={[-60 * DEG, 0, 0]}>
-          <sphereGeometry args={[0.16, 16, 12]} />
-          <Mat {...CAST} />
+        <mesh geometry={geo.hullMg} castShadow>
+          <Skin />
         </mesh>
-        <mesh position={[0.46, 1.32, 2.5]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.028, 0.032, 0.42, 10]} />
-          <Mat {...STEEL} />
+        <mesh ref={mgFlash} position={[-0.46, 1.16, 3.02]} visible={false}>
+          <coneGeometry args={[0.07, 0.24, 7]} />
+          <meshBasicMaterial
+            color="#ffd489"
+            transparent
+            opacity={0.85}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+          />
         </mesh>
-      </Part>
-
-      <Part id="fenders">
-        {sides.map((side) => (
-          <group key={side}>
-            <mesh position={[side * 1.32, 1.02, 0.1]} castShadow>
-              <boxGeometry args={[0.58, 0.03, 5.5]} />
-              <Mat {...STEEL} />
-            </mesh>
-            {/* External fuel drums on the rear fender. */}
-            <mesh
-              position={[side * 1.34, 1.2, -2.15]}
-              rotation={[Math.PI / 2, 0, 0]}
-              castShadow
-            >
-              <cylinderGeometry args={[0.17, 0.17, 0.72, 14]} />
-              <Mat color="#5a6150" metalness={0.5} roughness={0.75} />
-            </mesh>
-            {/* Spare track links, stowed on the glacis fender. */}
-            {[0, 1, 2].map((i) => (
-              <mesh key={i} position={[side * 1.3, 1.08, 1.9 - i * 0.2]}>
-                <boxGeometry args={[0.46, 0.06, 0.16]} />
-                <Mat {...TRACK} />
-              </mesh>
-            ))}
-          </group>
-        ))}
       </Part>
 
       <Part id="engine">
-        <mesh position={[0, 1.05, -1.95]} castShadow>
-          <boxGeometry args={[1.1, 0.78, 1.25]} />
-          <Mat color="#3c4148" metalness={0.75} roughness={0.5} />
-        </mesh>
-        {sides.map((side) => (
-          <mesh
-            key={side}
-            position={[side * 0.3, 1.25, -1.95]}
-            rotation={[0, 0, side * 0.52]}
-          >
-            <boxGeometry args={[0.34, 0.3, 1.15]} />
-            <Mat color="#494f57" metalness={0.8} roughness={0.45} />
-          </mesh>
-        ))}
-        {/* Transmission, behind the engine at the drive end. */}
-        <mesh position={[0, 0.85, -2.72]}>
-          <boxGeometry args={[1.3, 0.62, 0.5]} />
-          <Mat {...STEEL} />
+        <mesh geometry={geo.engine} castShadow>
+          <Skin metalness={0.75} roughness={0.5} />
         </mesh>
       </Part>
 
-      {/* ------------------------------------------------------------------ */}
-      <group position={[0, DECK, 0.1]} rotation={[0, traverse, 0]}>
+      {sides.map((side, s) => (
+        <Part key={side} id="fenders" mirror={side < 0}>
+          <mesh geometry={s === 0 ? geo.fenderPort : geo.fenderStbd} castShadow receiveShadow>
+            <Skin metalness={0.5} roughness={0.8} />
+          </mesh>
+        </Part>
+      ))}
+
+      {sides.map((side, s) => (
+        <Part key={side} id="stowage" mirror={side < 0}>
+          <mesh geometry={s === 0 ? geo.stowagePort : geo.stowageStbd} castShadow>
+            <Skin />
+          </mesh>
+        </Part>
+      ))}
+
+      {/* --- Turret ----------------------------------------------------- */}
+      <group position={[0, RING_Y, RING_Z]} rotation={[0, traverse, 0]}>
         <Part id="turret">
           <mesh geometry={geo.turret} castShadow receiveShadow>
-            <Mat {...CAST} />
+            <Skin metalness={0.5} roughness={0.78} />
           </mesh>
-          {/* Loader's hatch. */}
-          <mesh position={[0.42, 1.01, -0.2]}>
-            <cylinderGeometry args={[0.24, 0.24, 0.04, 20]} />
-            <Mat {...ARMOUR} />
-          </mesh>
-          {/* Gunner's periscope. */}
-          <mesh position={[-0.35, 1.06, 0.25]}>
-            <boxGeometry args={[0.16, 0.12, 0.2]} />
-            <Mat {...STEEL} />
-          </mesh>
-          {/* Lifting eyes. */}
-          {sides.map((side) => (
-            <mesh key={side} position={[side * 0.55, 0.96, -0.75]} rotation={[0, 0, Math.PI / 2]}>
-              <torusGeometry args={[0.09, 0.025, 8, 14, Math.PI]} />
-              <Mat {...CAST} />
-            </mesh>
-          ))}
-        </Part>
-
-        <Part id="cupola">
-          <mesh position={[-0.38, 1.04, -0.42]} castShadow>
-            <cylinderGeometry args={[0.31, 0.33, 0.14, 24]} />
-            <Mat {...CAST} />
-          </mesh>
-          {/* Five vision slits. */}
-          {[0, 1, 2, 3, 4].map((i) => {
-            const a = (i / 5) * Math.PI * 2
-            return (
-              <mesh
-                key={i}
-                position={[-0.38 + Math.cos(a) * 0.32, 1.04, -0.42 + Math.sin(a) * 0.32]}
-                rotation={[0, -a, 0]}
-              >
-                <boxGeometry args={[0.03, 0.05, 0.14]} />
-                <Mat color="#101114" metalness={0.3} roughness={0.9} />
+          {number && (
+            <>
+              <mesh geometry={geo.decalPort}>
+                <meshStandardMaterial
+                  map={number}
+                  transparent
+                  alphaTest={0.35}
+                  roughness={0.85}
+                  metalness={0.1}
+                  side={THREE.DoubleSide}
+                />
               </mesh>
-            )
-          })}
-          <group ref={hatch} position={[-0.38, 1.11, -0.72]}>
-            <mesh position={[0, 0, 0.3]} castShadow>
-              <cylinderGeometry args={[0.3, 0.3, 0.05, 24]} />
-              <Mat {...ARMOUR} />
+              <mesh geometry={geo.decalStbd}>
+                <meshStandardMaterial
+                  map={number}
+                  transparent
+                  alphaTest={0.35}
+                  roughness={0.85}
+                  metalness={0.1}
+                  side={THREE.DoubleSide}
+                />
+              </mesh>
+            </>
+          )}
+          <group ref={loader} position={[LOADER.x, TURRET_H, LOADER.z - LOADER.r]}>
+            <mesh geometry={geo.loaderHatch} castShadow>
+              <Skin />
             </mesh>
           </group>
         </Part>
 
-        {/* Gun and mantlet elevate together about the trunnions. */}
-        {/* Positive elevation lifts the muzzle, so the rotation is negative:
-            +Z is forward, and turning about +X takes it downward. */}
-        <group position={[0, 0.45, 0.6]} rotation={[-elevation, 0, 0]}>
+        <Part id="cupola">
+          <group position={[CUPOLA.x, TURRET_H - 0.02, CUPOLA.z]}>
+            <mesh geometry={geo.cupola} castShadow>
+              <Skin metalness={0.5} roughness={0.78} />
+            </mesh>
+            <group ref={leafA} position={[0, 0.25, 0]}>
+              <mesh geometry={geo.cupolaLeafA} castShadow>
+                <Skin />
+              </mesh>
+            </group>
+            <group ref={leafB} position={[0, 0.25, 0]}>
+              <mesh geometry={geo.cupolaLeafB} castShadow>
+                <Skin />
+              </mesh>
+            </group>
+          </group>
+        </Part>
+
+        {/* The gun and its mantlet elevate together about the trunnions.
+            +Z is forward, so lifting the muzzle is a negative rotation. */}
+        <group position={[0, TRUNNION.y, TRUNNION.z]} rotation={[-elevation, 0, 0]}>
           <Part id="mantlet">
-            <mesh position={[0, 0, 0.42]} castShadow>
-              <boxGeometry args={[0.86, 0.62, 0.3]} />
-              <Mat {...CAST} />
-            </mesh>
-            <mesh position={[0, 0, 0.5]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <cylinderGeometry args={[0.28, 0.28, 0.34, 20]} />
-              <Mat {...CAST} />
-            </mesh>
-            {/* Coaxial DT machine gun. */}
-            <mesh position={[0.2, -0.04, 0.72]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[0.025, 0.03, 0.3, 10]} />
-              <Mat {...STEEL} />
+            <mesh geometry={geo.mantlet} castShadow>
+              <Skin metalness={0.5} roughness={0.78} />
             </mesh>
           </Part>
 
           <Part id="gun">
-            {/* Breech end, inside the turret. */}
-            <mesh position={[0, 0, -0.2]}>
-              <boxGeometry args={[0.36, 0.36, 0.7]} />
-              <Mat {...STEEL} />
-            </mesh>
-            {/* 4.64 m of barrel: L/54.6 at 85 mm. */}
-            <mesh position={[0, 0, 2.2]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <cylinderGeometry args={[0.062, 0.082, 3.3, 20]} />
-              <Mat {...STEEL} />
-            </mesh>
-            <mesh position={[0, 0, 0.75]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[0.095, 0.105, 0.6, 20]} />
-              <Mat {...STEEL} />
-            </mesh>
-            <mesh position={[0, 0, 3.86]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[0.07, 0.07, 0.12, 20]} />
-              <Mat {...STEEL} />
-            </mesh>
+            <group ref={recoil}>
+              <mesh geometry={geo.gun} castShadow>
+                <Skin metalness={0.72} roughness={0.5} />
+              </mesh>
+            </group>
           </Part>
+
+          <mesh ref={flash} position={[0, 0, 4.85]} visible={false}>
+            <coneGeometry args={[0.36, 1.3, 9]} />
+            <meshBasicMaterial
+              color="#ffe6a8"
+              transparent
+              opacity={0}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+              toneMapped={false}
+            />
+          </mesh>
+          <pointLight
+            ref={flashLight}
+            position={[0, 0, 4.9]}
+            color="#ffdca0"
+            intensity={0}
+            distance={40}
+            decay={2}
+          />
         </group>
       </group>
 
-      {/* ------------------------------------------------------------------ */}
+      {/* --- Running gear ----------------------------------------------- */}
+      <Part id="suspension">
+        <mesh geometry={geo.springs}>
+          <Skin metalness={0.7} roughness={0.55} />
+        </mesh>
+        {sides.map((side, s) =>
+          WHEEL_Z.map((z, i) => (
+            <group
+              key={`${side}:${i}`}
+              ref={(el) => {
+                arms.current[s * 5 + i] = el
+              }}
+              position={[side * ARM.x, WHEEL_R + ARM.dy, z + ARM.dz]}
+            >
+              <mesh geometry={geo.arm} castShadow>
+                <Skin />
+              </mesh>
+            </group>
+          )),
+        )}
+      </Part>
+
       {sides.map((side, s) => (
         <group key={side}>
           <Part id="wheels" mirror={side < 0}>
@@ -444,30 +373,24 @@ export function T34({ controls }: { controls: Controls }) {
                 position={[side * TRACK_X, WHEEL_R, z]}
               >
                 <mesh geometry={geo.wheel} castShadow>
-                  <Mat {...STEEL} />
-                </mesh>
-                <mesh rotation={[0, 0, Math.PI / 2]}>
-                  <cylinderGeometry args={[WHEEL_R, WHEEL_R, 0.075, 24]} />
-                  <Mat {...RUBBER} />
+                  <Skin metalness={0.6} roughness={0.7} />
                 </mesh>
               </group>
             ))}
           </Part>
 
           <Part id="idler" mirror={side < 0}>
+            <mesh geometry={geo.idlerCrank} position={[side * 1.06, IDLER.y + 0.08, IDLER.z]}>
+              <Skin />
+            </mesh>
             <group
               ref={(el) => {
                 idlers.current[s] = el
               }}
               position={[side * TRACK_X, IDLER.y, IDLER.z]}
             >
-              <mesh rotation={[0, 0, Math.PI / 2]} castShadow>
-                <cylinderGeometry args={[IDLER.r, IDLER.r, 0.22, 22]} />
-                <Mat {...STEEL} />
-              </mesh>
-              <mesh rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[IDLER.r - 0.05, IDLER.r - 0.05, 0.27, 22]} />
-                <Mat {...RUBBER} />
+              <mesh geometry={geo.idler} castShadow>
+                <Skin metalness={0.6} roughness={0.7} />
               </mesh>
             </group>
           </Part>
@@ -480,7 +403,7 @@ export function T34({ controls }: { controls: Controls }) {
               position={[side * TRACK_X, SPROCKET.y, SPROCKET.z]}
             >
               <mesh geometry={geo.sprocket} castShadow>
-                <Mat {...STEEL} />
+                <Skin metalness={0.7} roughness={0.6} />
               </mesh>
             </group>
           </Part>
@@ -488,32 +411,31 @@ export function T34({ controls }: { controls: Controls }) {
           <Part id="tracks" mirror={side < 0}>
             <instancedMesh
               ref={(el) => {
-                tracks.current[s] = el
+                flats.current[s] = el
               }}
-              args={[geo.link, undefined, LINKS]}
+              args={[geo.linkFlat, undefined, half]}
               position={[side * TRACK_X, 0, 0]}
               castShadow
               receiveShadow
+              frustumCulled={false}
             >
-              <Mat {...TRACK} />
+              <Skin metalness={0.75} roughness={0.55} />
+            </instancedMesh>
+            <instancedMesh
+              ref={(el) => {
+                horns.current[s] = el
+              }}
+              args={[geo.linkHorn, undefined, half]}
+              position={[side * TRACK_X, 0, 0]}
+              castShadow
+              receiveShadow
+              frustumCulled={false}
+            >
+              <Skin metalness={0.75} roughness={0.55} />
             </instancedMesh>
           </Part>
         </group>
       ))}
     </group>
   )
-}
-
-// --- Small primitives used by the merged assemblies -------------------------
-
-function boxGeo(w: number, h: number, d: number, x = 0, y = 0, z = 0) {
-  const g = new THREE.BoxGeometry(w, h, d).toNonIndexed()
-  g.translate(x, y, z)
-  return g
-}
-
-function cylGeo(r: number, h: number, seg: number, rotZ: number) {
-  const g = new THREE.CylinderGeometry(r, r, h, seg).toNonIndexed()
-  g.rotateZ(rotZ)
-  return g
 }

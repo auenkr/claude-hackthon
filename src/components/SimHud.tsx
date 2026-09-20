@@ -1,4 +1,5 @@
 import type { Gauge, Readout, SimDef, View, ViewName } from '../sim/types'
+import { Graticule } from './Graticule'
 
 /**
  * The operator's panel. Deliberately instrument-like: readings in mono,
@@ -128,29 +129,5 @@ function Reading({ gauge, accent }: { gauge: Gauge; accent: string }) {
         </div>
       )}
     </div>
-  )
-}
-
-/** The TSh-16's graticule: a stadia line and range marks, roughly to scale. */
-function Graticule() {
-  return (
-    <svg
-      className="pointer-events-none absolute inset-0 h-full w-full"
-      viewBox="0 0 100 100"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <g stroke="#1b1b1f" strokeWidth="0.12" opacity="0.8">
-        <line x1="20" y1="50" x2="44" y2="50" />
-        <line x1="56" y1="50" x2="80" y2="50" />
-        <line x1="50" y1="30" x2="50" y2="46" />
-        {/* Range marks down the vertical, as the sight's lead scale. */}
-        {[54, 58, 62, 66].map((y, i) => (
-          <line key={y} x1={49 - i * 0.6} y1={y} x2={51 + i * 0.6} y2={y} />
-        ))}
-        <path d="M46 50 L50 56 L54 50" fill="none" />
-      </g>
-      <circle cx="50" cy="50" r="0.35" fill="#1b1b1f" opacity="0.85" />
-    </svg>
   )
 }
