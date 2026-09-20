@@ -287,6 +287,7 @@ function StageMachine({
   const controls = useMemo(() => {
     const base = defaultControls(machine)
     // On the stage the machines idle: engines turning, nothing stowed.
+    if (machine.slug === 'velocipede') base.speed = 9
     if (machine.slug === 'p51-mustang') base.throttle = 55
     if (machine.slug === 'wright-flyer') base.engine = 60
     if (machine.slug === 't34-85') base.speed = 12
