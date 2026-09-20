@@ -302,7 +302,9 @@ function StageMachine({
 
   // Scale every exhibit to a common display footprint, and stand it at a
   // three-quarter angle so the eye reads depth rather than a silhouette.
-  const scale = 4.4 / machine.radius
+  // The velocipede's tall, narrow silhouette reads much larger than its
+  // footprint, so it gets a smaller stage-only presentation scale.
+  const scale = (4.4 / machine.radius) * (machine.slug === 'velocipede' ? 0.48 : 1)
 
   return (
     <group
