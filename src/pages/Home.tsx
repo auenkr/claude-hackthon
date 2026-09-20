@@ -13,7 +13,9 @@ const DWELL = 7000
 const PIVOT = 9
 
 export function Home() {
-  const [active, setActive] = useState(0)
+  const [active, setActive] = useState(() =>
+    machines.findIndex((machine) => machine.slug === 't34-85'),
+  )
   const [paused, setPaused] = useState(false)
 
   useEffect(() => {
