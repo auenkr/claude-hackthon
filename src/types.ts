@@ -71,3 +71,11 @@ export interface MachineSpec {
 
 /** Live values for a machine's controls, keyed by control id. */
 export type Controls = Record<string, number>
+
+/**
+ * Where a reconstruction is standing. On the `plinth` it poses itself — the
+ * aeroplane sits on its gear, the Flyer lifts a little when you throw the
+ * launch switch. Set `free` and it renders in its own body axes with the
+ * origin untouched, so a simulator can own the attitude instead.
+ */
+export type Mount = 'plinth' | 'free'

@@ -38,7 +38,7 @@ export const t34: MachineSpec = {
   origin: 'Nizhny Tagil, Urals',
   years: '1940 — 1958',
   tagline: 'Sloped armour, a diesel engine, and a shape built to be mass-produced.',
-  accent: '#6f9a5c',
+  accent: '#4c7a3c',
   camera: [9.5, 4.2, 9.5],
   target: [0, 1.2, 0],
   radius: 5.4,

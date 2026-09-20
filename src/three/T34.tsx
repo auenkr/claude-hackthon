@@ -389,7 +389,9 @@ export function T34({ controls }: { controls: Controls }) {
         </Part>
 
         {/* Gun and mantlet elevate together about the trunnions. */}
-        <group position={[0, 0.45, 0.6]} rotation={[elevation, 0, 0]}>
+        {/* Positive elevation lifts the muzzle, so the rotation is negative:
+            +Z is forward, and turning about +X takes it downward. */}
+        <group position={[0, 0.45, 0.6]} rotation={[-elevation, 0, 0]}>
           <Part id="mantlet">
             <mesh position={[0, 0, 0.42]} castShadow>
               <boxGeometry args={[0.86, 0.62, 0.3]} />

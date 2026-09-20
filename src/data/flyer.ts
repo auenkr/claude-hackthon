@@ -37,7 +37,7 @@ export const flyer: MachineSpec = {
   origin: 'Dayton, Ohio · flown at Kill Devil Hills',
   years: '1903',
   tagline: 'The first machine to fly, and the first to be steered.',
-  accent: '#c9a26b',
+  accent: '#8a6a3a',
   camera: [11, 4.5, 11],
   target: [0, 1.4, 0],
   radius: 6.6,
@@ -76,6 +76,14 @@ export const flyer: MachineSpec = {
       value: 0,
       unit: '%',
       hint: 'The heart of the patent. Sliding the cradle warps the wings and swings the rudder together — one input, two surfaces.',
+    },
+    {
+      id: 'linkage',
+      label: 'Rudder linkage',
+      kind: 'toggle',
+      value: 1,
+      states: ['Disconnected, as rigged 1902', 'Geared to the cradle, 1903'],
+      hint: 'Disconnect it and the cradle warps the wings alone — which is the machine that would not turn without trying to spin.',
     },
     {
       id: 'elevator',

@@ -1,14 +1,14 @@
 import type { Source, SourceKind } from '../types'
 
 const STYLES: Record<SourceKind, { label: string; className: string }> = {
-  text: { label: 'Text', className: 'text-sky-300/90 border-sky-400/30 bg-sky-400/10' },
+  text: { label: 'Text', className: 'text-sky-800 border-sky-600/30 bg-sky-500/10' },
   artifact: {
     label: 'Artifact',
-    className: 'text-emerald-300/90 border-emerald-400/30 bg-emerald-400/10',
+    className: 'text-emerald-800 border-emerald-700/30 bg-emerald-600/10',
   },
   inference: {
     label: 'Inference',
-    className: 'text-amber-300/90 border-amber-400/30 bg-amber-400/10',
+    className: 'text-amber-800 border-amber-700/30 bg-amber-500/15',
   },
 }
 

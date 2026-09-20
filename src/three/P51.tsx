@@ -3,7 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Mat, Part } from './Part'
 import { liftingSurface, loft, loftSuper, type SuperSection, type WingStation } from './geometry'
-import type { Controls } from '../types'
+import { P51_STANCE } from './stance'
+import type { Controls, Mount } from '../types'
 
 /**
  * P-51D Mustang.
@@ -138,7 +139,13 @@ function Hinged({
   )
 }
 
-export function P51({ controls }: { controls: Controls }) {
+export function P51({
+  controls,
+  mount = 'plinth',
+}: {
+  controls: Controls
+  mount?: Mount
+}) {
   const throttle = (controls.throttle ?? 0) / 100
   const gearDown = (controls.gear ?? 1) > 0.5
   const flapAngle = (controls.flaps ?? 0) * DEG
@@ -301,8 +308,8 @@ export function P51({ controls }: { controls: Controls }) {
   const hoodRef = useRef<THREE.Group>(null)
 
   // Ground attitude: both main wheels and the tailwheel on the floor at once.
-  const GROUND_PITCH = 12.8 * DEG
-  const GROUND_RISE = 1.624
+  const GROUND_PITCH = P51_STANCE.pitch
+  const GROUND_RISE = P51_STANCE.rise
 
   useFrame((_, dt) => {
     const k = 1 - Math.exp(-6 * dt)
@@ -317,7 +324,9 @@ export function P51({ controls }: { controls: Controls }) {
       m.opacity += (Math.max(0, throttle - 0.15) * 0.22 - m.opacity) * k
       disc.current.visible = m.opacity > 0.005
     }
-    if (stance.current) {
+    // Under a simulator the airframe keeps its own axes; whoever is flying it
+    // decides where it sits.
+    if (stance.current && mount === 'plinth') {
       const targetPitch = gearDown ? -GROUND_PITCH : 0
       const targetY = gearDown ? GROUND_RISE : 2.55
       stance.current.rotation.x += (targetPitch - stance.current.rotation.x) * k
@@ -342,7 +351,11 @@ export function P51({ controls }: { controls: Controls }) {
   const exhaustStacks = [0, 1, 2, 3, 4, 5]
 
   return (
-    <group ref={stance} position={[0, GROUND_RISE, 0]} rotation={[-GROUND_PITCH, 0, 0]}>
+    <group
+      ref={stance}
+      position={mount === 'free' ? [0, 0, 0] : [0, GROUND_RISE, 0]}
+      rotation={mount === 'free' ? [0, 0, 0] : [-GROUND_PITCH, 0, 0]}
+    >
       {/* ---------------------------------------------------------------- */}
       <Part id="fuselage">
         <mesh geometry={geo.fuselage} castShadow receiveShadow>

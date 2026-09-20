@@ -61,14 +61,23 @@ export function Home() {
               <p className="mt-2 text-[14px] leading-relaxed text-label">
                 {machine.tagline}
               </p>
-              <Link
-                to={`/machine/${machine.slug}`}
-                className="pointer-events-auto mt-5 inline-flex items-center gap-2 border-b pb-1 text-[13px] text-ink transition-colors"
-                style={{ borderColor: machine.accent }}
-              >
-                Enter the exhibit
-                <span aria-hidden="true">→</span>
-              </Link>
+              <div className="mt-5 flex flex-wrap items-center gap-5">
+                <Link
+                  to={`/machine/${machine.slug}`}
+                  className="pointer-events-auto inline-flex items-center gap-2 border-b pb-1 text-[13px] text-ink transition-colors"
+                  style={{ borderColor: machine.accent }}
+                >
+                  Enter the exhibit
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <Link
+                  to={`/machine/${machine.slug}/run`}
+                  className="placard pointer-events-auto inline-flex items-center gap-2 rounded-sm px-3 py-2 transition-opacity hover:opacity-90"
+                  style={{ background: machine.accent, color: '#17171b' }}
+                >
+                  Run it
+                </Link>
+              </div>
             </div>
 
             {/* Stage selector. */}
@@ -125,6 +134,14 @@ export function Home() {
             every value: a published text, a measured artifact, or a clearly
             labelled inference where we had to work it out ourselves.
           </p>
+          <p>
+            Then take the controls. Each exhibit has a simulation built from
+            the same cited figures as its geometry — mass, area, power, gun
+            limits — so what the machine will and will not do for you is a
+            consequence of the sources rather than a judgement about
+            difficulty. The Flyer really will only fly close to the sand. The
+            T-34 really cannot turn while standing still.
+          </p>
         </div>
       </section>
 
@@ -133,25 +150,29 @@ export function Home() {
         <h2 className="placard mb-6 text-label">The collection</h2>
         <ul className="border-t border-rail/60">
           {machines.map((m) => (
-            <li key={m.slug}>
+            <li
+              key={m.slug}
+              className="flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-rail/60 py-6"
+            >
+              <span
+                className="font-mono text-[11px] tabular-nums"
+                style={{ color: m.accent }}
+              >
+                {m.years}
+              </span>
               <Link
                 to={`/machine/${m.slug}`}
-                className="group flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-rail/60 py-6 transition-colors hover:bg-case/30"
+                className="font-display text-[22px] text-ink underline-offset-4 hover:underline"
               >
-                <span
-                  className="font-mono text-[11px] tabular-nums"
-                  style={{ color: m.accent }}
-                >
-                  {m.years}
-                </span>
-                <span className="font-display text-[22px] text-ink">{m.name}</span>
-                <span className="flex-1 text-[13px] text-label">{m.tagline}</span>
-                <span
-                  className="text-label transition-transform group-hover:translate-x-1"
-                  aria-hidden="true"
-                >
-                  →
-                </span>
+                {m.name}
+              </Link>
+              <span className="flex-1 text-[13px] text-label">{m.tagline}</span>
+              <Link
+                to={`/machine/${m.slug}/run`}
+                className="placard rounded-sm border px-2.5 py-1.5 text-label transition-colors hover:text-ink"
+                style={{ borderColor: 'var(--color-rail)' }}
+              >
+                Run it
               </Link>
             </li>
           ))}
@@ -204,11 +225,11 @@ function Stage({ active }: { active: number }) {
 
   return (
     <>
-      <color attach="background" args={['#07070a']} />
-      <fog attach="fog" args={['#07070a', 14, 44]} />
+      <color attach="background" args={['#eceae5']} />
+      <fog attach="fog" args={['#eceae5', 16, 52]} />
 
-      <ambientLight intensity={0.16} />
-      <hemisphereLight args={['#46505e', '#08080b', 0.42]} />
+      <ambientLight intensity={0.7} />
+      <hemisphereLight args={['#ffffff', '#ccc7bc', 0.9]} />
 
       {/* The fixed museum spotlight. Machines come to it. */}
       <spotLight
@@ -216,7 +237,7 @@ function Stage({ active }: { active: number }) {
         target={target}
         angle={0.4}
         penumbra={0.9}
-        intensity={340}
+        intensity={300}
         distance={40}
         castShadow
         shadow-mapSize={[2048, 2048]}
@@ -227,21 +248,21 @@ function Stage({ active }: { active: number }) {
         target={target}
         angle={0.5}
         penumbra={1}
-        intensity={90}
-        color="#8ea6c8"
+        intensity={80}
+        color="#e8efff"
         distance={34}
       />
-      <pointLight position={[0, 1.2, 7]} intensity={26} distance={16} color="#cfd8e6" />
+      <pointLight position={[0, 1.2, 7]} intensity={22} distance={16} color="#ffffff" />
 
       <Environment resolution={128} frames={1}>
-        <Lightformer form="rect" intensity={1.6} position={[0, 8, 3]} scale={[12, 8, 1]} rotation={[-Math.PI / 2, 0, 0]} color="#c9d4e6" />
-        <Lightformer form="rect" intensity={0.5} position={[-8, 2, -6]} scale={[10, 6, 1]} rotation={[0, Math.PI / 3, 0]} color="#6c7b90" />
+        <Lightformer form="rect" intensity={2.6} position={[0, 8, 3]} scale={[12, 8, 1]} rotation={[-Math.PI / 2, 0, 0]} color="#ffffff" />
+        <Lightformer form="rect" intensity={1.3} position={[-8, 2, -6]} scale={[10, 6, 1]} rotation={[0, Math.PI / 3, 0]} color="#e4e9f2" />
       </Environment>
 
       {/* Gallery floor. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[40, 72]} />
-        <meshStandardMaterial color="#0a0a0e" metalness={0.2} roughness={0.85} />
+        <meshStandardMaterial color="#e4e0d8" metalness={0.05} roughness={0.9} />
       </mesh>
 
       <group ref={table} position={[0, 0, -PIVOT]}>

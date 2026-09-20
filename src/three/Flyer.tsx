@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Mat, Part } from './Part'
 import { loft, merge, strut } from './geometry'
-import type { Controls } from '../types'
+import type { Controls, Mount } from '../types'
 
 /**
  * 1903 Wright Flyer.
@@ -67,7 +67,13 @@ function wingGeometry(y0: number) {
   return loft(rings)
 }
 
-export function Flyer({ controls }: { controls: Controls }) {
+export function Flyer({
+  controls,
+  mount = 'plinth',
+}: {
+  controls: Controls
+  mount?: Mount
+}) {
   const power = (controls.engine ?? 0) / 100
   const cradle = (controls.cradle ?? 0) / 100
   const elevator = (controls.elevator ?? 0) * DEG
@@ -227,7 +233,9 @@ export function Flyer({ controls }: { controls: Controls }) {
     if (props.current[0]) props.current[0].rotation.z -= step
     if (props.current[1]) props.current[1].rotation.z += step
 
-    if (attitude.current) {
+    // On the plinth the machine poses itself. Under the simulator the pilot
+    // owns the attitude, and this block stands down.
+    if (attitude.current && mount === 'plinth') {
       attitude.current.position.y += ((airborne ? 1.15 : 0) - attitude.current.position.y) * k
       attitude.current.rotation.x += ((airborne ? -4 * DEG : 0) - attitude.current.rotation.x) * k
       // A warped wing rolls the machine: the point of the whole mechanism.
@@ -240,7 +248,9 @@ export function Flyer({ controls }: { controls: Controls }) {
     applyWarp(geo.lower, geo.rest.lower, warp.current, LOWER_Y)
   })
 
-  const rudderAngle = -cradle * 12 * DEG
+  // The patent's whole claim: the rudder is not a separate control, it is
+  // geared to the cradle. Break the linkage and the machine is the 1902 one.
+  const rudderAngle = -cradle * 12 * DEG * ((controls.linkage ?? 1) > 0.5 ? 1 : 0)
 
   return (
     <group ref={attitude}>
@@ -450,6 +460,13 @@ function applyWarp(
   amount: number,
   baseY: number,
 ) {
+  // Rewriting every vertex and recomputing normals is not free, and the home
+  // page runs three machines in one frame. Skip the work while the wing is
+  // holding still — which is most of the time.
+  const last = geometry.userData.warp as number | undefined
+  if (last !== undefined && Math.abs(last - amount) < 2e-4) return
+  geometry.userData.warp = amount
+
   const attr = geometry.getAttribute('position') as THREE.BufferAttribute
   const arr = attr.array as Float32Array
   const MAX = 6 * DEG

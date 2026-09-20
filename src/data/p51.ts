@@ -37,7 +37,7 @@ export const p51: MachineSpec = {
   origin: 'Inglewood, California',
   years: '1940 — 1945',
   tagline: 'A laminar-flow wing wrapped around a borrowed engine.',
-  accent: '#e0a03c',
+  accent: '#b5761b',
   camera: [10.5, 4.6, 10.5],
   target: [0, 1.5, 0],
   radius: 6.2,

@@ -56,6 +56,16 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
             <br />
             {machine.origin} · {machine.years}
           </p>
+
+          {/* The exhibit explains the machine; this is where you work it. */}
+          <Link
+            to={`/machine/${machine.slug}/run`}
+            className="mt-4 inline-flex items-center gap-2 rounded-sm px-3 py-2 text-[12px] transition-opacity hover:opacity-90"
+            style={{ background: machine.accent, color: '#17171b' }}
+          >
+            <span className="placard">Take the controls</span>
+            <span aria-hidden="true">→</span>
+          </Link>
         </div>
 
         <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5">
@@ -200,7 +210,7 @@ function Toggle({
       aria-pressed={on}
       className="placard rounded-sm border px-2.5 py-1.5 transition-colors"
       style={{
-        color: on ? '#07070a' : undefined,
+        color: on ? '#17171b' : undefined,
         background: on ? accent : 'transparent',
         borderColor: on ? accent : 'var(--color-rail)',
       }}
