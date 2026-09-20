@@ -1,5 +1,6 @@
 import { Velocipede } from './Velocipede'
 import { Flyer } from './Flyer'
+import { Lotus49 } from './Lotus49'
 import { P51 } from './P51'
 import { T34 } from './T34'
 import type { Controls, MachineSpec, Mount } from '../types'
@@ -23,6 +24,8 @@ export function Machine({
       return <P51 controls={controls} mount={mount} />
     case 't34-85':
       return <T34 controls={controls} />
+    case 'lotus-49':
+      return <Lotus49 controls={controls} />
     default:
       return null
   }
