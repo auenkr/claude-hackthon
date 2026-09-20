@@ -3,10 +3,11 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { ExhibitProvider } from '../three/Part'
 import { Machine } from '../three/Machine'
-import { Airfield, Dunes, Range } from './scenes'
+import { Airfield, Circuit, Dunes, Range } from './scenes'
 import type { Keyboard } from './keyboard'
 import type { Sim, ViewName } from './types'
 import type { FlyerSim } from './flyer'
+import type { Lotus49Sim } from './lotus49'
 import type { P51Sim } from './p51'
 import type { T34Sim } from './t34'
 import type { Controls, MachineSpec } from '../types'
@@ -50,6 +51,9 @@ export function SimCanvas({
           <Airfield sim={sim as P51Sim} accent={machine.accent} />
         )}
         {machine.slug === 't34-85' && <Range sim={sim as T34Sim} />}
+        {machine.slug === 'lotus-49' && (
+          <Circuit sim={sim as Lotus49Sim} accent={machine.accent} />
+        )}
 
         <Rig machine={machine} sim={sim} view={view} paused={paused} keys={keys} />
       </Suspense>

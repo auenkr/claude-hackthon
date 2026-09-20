@@ -211,9 +211,10 @@ export function Lotus49({ controls }: { controls: Controls }) {
     const k = 1 - Math.exp(-6 * dt)
     clock.current += dt
 
-    // Wheels: a spinning exhibit reads as running. Twelve metres a second
-    // at full throttle is enough to blur the tread without looking silly.
-    const v = throttle * 12
+    // Wheels: a simulator hands us real road speed; on the plinth a spinning
+    // exhibit reads as running, and twelve metres a second at full throttle
+    // blurs the tread without looking silly.
+    const v = controls.speed !== undefined ? controls.speed / 3.6 : throttle * 12
     spinners.current.forEach((g, i) => {
       if (!g) return
       const r = i < 2 ? FRONT_R : REAR_R
