@@ -3,7 +3,9 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { ExhibitProvider } from '../three/Part'
 import { Machine } from '../three/Machine'
-import { Airfield, Dunes, Range } from './scenes'
+import { Dunes } from './scenes/Dunes'
+import { Airfield } from './scenes/Airfield'
+import { Range } from './scenes/Range'
 import type { Keyboard } from './keyboard'
 import type { Sim, ViewName } from './types'
 import type { FlyerSim } from './flyer'
@@ -100,6 +102,9 @@ function Rig({
     if (group.current) {
       group.current.position.copy(sim.position)
       group.current.quaternion.copy(sim.quaternion)
+      // A destroyed machine leaves the scene: what is burning there is no
+      // longer a reconstruction of anything.
+      group.current.visible = sim.showModel !== false
     }
 
     const fov = sim.camera(view, eye.current, aim.current)

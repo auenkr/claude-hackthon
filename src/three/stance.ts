@@ -43,6 +43,3 @@ export function p51MainRise(pitch: number) {
     P51_CONTACT.main.z * Math.sin(pitch)
   )
 }
-
-/** Height of the Flyer's skid runners below its datum: its parked height. */
-export const FLYER_SKID = 0.11

@@ -1,6 +1,8 @@
 import type * as THREE from 'three'
 import type { Controls, Dimension } from '../types'
 import type { Keyboard } from './keyboard'
+import type { Effects } from './fx'
+import type { Obstacles } from './obstacles'
 
 /** One instrument on the panel. */
 export interface Gauge {
@@ -63,6 +65,19 @@ export interface Sim {
   camera(view: ViewName, eye: THREE.Vector3, aim: THREE.Vector3): number
   /** True once the run is over and the verdict stands. */
   readonly finished: boolean
+
+  /**
+   * Fire, smoke and wreckage, if the machine can come to grief. The sim owns
+   * it and steps it; the scene draws it with `<Fx>`.
+   */
+  readonly fx?: Effects
+  /** Everything solid in the world, if the machine can run into things. */
+  readonly obstacles?: Obstacles
+  /**
+   * False once the machine is destroyed, so the reconstruction is taken off
+   * the scene and the fireball is all that is left of it.
+   */
+  readonly showModel?: boolean
 }
 
 /** The wall text for a simulation: what it is, and where the numbers came from. */
