@@ -188,10 +188,30 @@ export function Home() {
       </section>
 
       <footer className="border-t border-rail/60 px-6 py-10">
-        <p className="mx-auto max-w-5xl text-[11px] leading-relaxed text-label/60">
-          Every dimension in this museum is tagged with its origin. Where the
-          sources are silent, the reconstruction says so.
-        </p>
+        <div className="mx-auto flex max-w-5xl flex-col gap-4 text-[11px] leading-relaxed text-label/60 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Every dimension in this museum is tagged with its origin. Where the
+            sources are silent, the reconstruction says so.
+          </p>
+          <div className="flex shrink-0 items-center gap-5">
+            <a
+              href="https://auenkr.com"
+              target="_blank"
+              rel="noreferrer"
+              className="placard text-label transition-colors hover:text-ink"
+            >
+              Connect · auenkr.com <span aria-hidden="true">↗</span>
+            </a>
+            <a
+              href="https://github.com/auenkr/the-machine-archive"
+              target="_blank"
+              rel="noreferrer"
+              className="placard text-label transition-colors hover:text-ink"
+            >
+              View on GitHub <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   )
