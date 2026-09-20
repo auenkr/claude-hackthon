@@ -6,7 +6,7 @@ import { SourceTag } from '../components/SourceTag'
 import { Keyboard } from '../sim/keyboard'
 import { getSim } from '../sim/sims'
 import { getMachine } from '../data/machines'
-import type { Sim, SimDef, ViewName } from '../sim/types'
+import type { Sim, SimDef } from '../sim/types'
 import type { MachineSpec } from '../types'
 
 export function SimPage() {
@@ -22,7 +22,7 @@ function Run({ machine, def }: { machine: MachineSpec; def: SimDef }) {
   const keys = useMemo(() => new Keyboard(), [])
   const sim = useMemo(() => def.create(), [def])
 
-  const [view, setView] = useState<ViewName>(def.views[0].name)
+  const view = def.views[0].name
   const [briefing, setBriefing] = useState(true)
   const [paused, setPaused] = useState(false)
 
@@ -33,12 +33,6 @@ function Run({ machine, def }: { machine: MachineSpec; def: SimDef }) {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.code === 'KeyP') setPaused((p) => !p)
       if (e.code === 'KeyR') sim.reset()
-      if (e.code === 'KeyV') {
-        setView((v) => {
-          const i = def.views.findIndex((x) => x.name === v)
-          return def.views[(i + 1) % def.views.length].name
-        })
-      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -71,10 +65,8 @@ function Run({ machine, def }: { machine: MachineSpec; def: SimDef }) {
         sim={sim}
         def={def}
         accent={machine.accent}
-        view={view}
         paused={paused}
         reticle={view === 'inside' && machine.slug === 't34-85'}
-        onView={setView}
         machine={machine}
       />
 
@@ -101,19 +93,15 @@ function Panel({
   def,
   machine,
   accent,
-  view,
   paused,
   reticle,
-  onView,
 }: {
   sim: Sim
   def: SimDef
   machine: MachineSpec
   accent: string
-  view: ViewName
   paused: boolean
   reticle: boolean
-  onView: (v: ViewName) => void
 }) {
   const [readout, setReadout] = useState(() => sim.readout())
 
@@ -128,11 +116,8 @@ function Panel({
         def={def}
         readout={readout}
         accent={accent}
-        view={view}
-        views={def.views}
         paused={paused}
         reticle={reticle}
-        onView={onView}
       />
 
       {readout.verdict && (

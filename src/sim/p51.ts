@@ -1096,7 +1096,7 @@ export const p51Sim: SimDef = {
     { keys: 'G', action: 'Undercarriage' },
     { keys: '[ / ]', action: 'Flaps up / down' },
     { keys: 'C', action: 'Radiator exit door' },
-    { keys: 'V · P · R', action: 'View · pause · start again' },
+    { keys: 'P · R', action: 'Pause · start again' },
   ],
   envelope,
   create: () => new P51Sim(),

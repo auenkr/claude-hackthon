@@ -1072,7 +1072,7 @@ export const flyerSim: SimDef = {
     { keys: 'C', action: 'Centre the elevator lever' },
     { keys: '← / →', action: 'Hip cradle: warp and rudder together' },
     { keys: 'L', action: 'Disconnect the rudder linkage' },
-    { keys: 'V · P · R', action: 'View · pause · start again' },
+    { keys: 'P · R', action: 'Pause · start again' },
   ],
   envelope,
   create: () => new FlyerSim(),

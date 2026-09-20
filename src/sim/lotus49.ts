@@ -440,7 +440,7 @@ export const lotus49Sim: SimDef = {
     { keys: '← / →', action: 'Steer' },
     { keys: '↑ / ↓', action: 'Gear up · gear down' },
     { keys: 'G', action: 'Fit or remove the rear wing' },
-    { keys: 'V · P · R', action: 'View · pause · start again' },
+    { keys: 'P · R', action: 'Pause · start again' },
   ],
   envelope,
   create: () => new Lotus49Sim(),

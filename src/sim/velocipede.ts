@@ -417,7 +417,7 @@ export const velocipedeSim: SimDef = {
     { keys: 'Space', action: 'Push off' },
     { keys: 'W / S', action: 'Pedal · spoon brake and back-pedal' },
     { keys: '← / →', action: 'Lean into a turn' },
-    { keys: 'V · P · R', action: 'View · pause · start again' },
+    { keys: 'P · R', action: 'Pause · start again' },
   ],
   envelope,
   create: () => new VelocipedeSim(),

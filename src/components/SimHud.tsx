@@ -1,4 +1,4 @@
-import type { Gauge, Readout, SimDef, View, ViewName } from '../sim/types'
+import type { Gauge, Readout, SimDef } from '../sim/types'
 import { Graticule } from './Graticule'
 
 /**
@@ -10,21 +10,15 @@ export function SimHud({
   def,
   readout,
   accent,
-  view,
-  views,
   paused,
   reticle,
-  onView,
 }: {
   def: SimDef
   readout: Readout
   accent: string
-  view: ViewName
-  views: View[]
   paused: boolean
   /** Draw a gunner's graticule over the middle of the picture. */
   reticle: boolean
-  onView: (view: ViewName) => void
 }) {
   return (
     <>
@@ -63,25 +57,8 @@ export function SimHud({
         </div>
       </div>
 
-      {/* Running commentary, and the view selector. */}
+      {/* Running commentary. */}
       <div className="pointer-events-none absolute bottom-0 right-0 flex flex-col items-end gap-2 p-4">
-        <div className="pointer-events-auto flex gap-1 rounded border border-rail bg-gallery/90 p-1 backdrop-blur">
-          {views.map((v) => (
-            <button
-              key={v.name}
-              type="button"
-              onClick={() => onView(v.name)}
-              aria-pressed={v.name === view}
-              className="placard rounded-sm px-2 py-1.5 transition-colors"
-              style={{
-                background: v.name === view ? accent : 'transparent',
-                color: v.name === view ? '#17171b' : undefined,
-              }}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
         <ul className="max-w-[300px] space-y-1 text-right">
           {readout.log.map((line, i) => (
             <li

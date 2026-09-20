@@ -1190,7 +1190,7 @@ export const t34Sim: SimDef = {
     { keys: '1 / 2 · C', action: 'Load AP · load HE · change round' },
     { keys: 'F', action: 'Both DT machine guns — hold' },
     { keys: 'B · H', action: 'Brakes · hatches' },
-    { keys: 'V · P · R', action: 'View · pause · start again' },
+    { keys: 'P · R', action: 'Pause · start again' },
   ],
   envelope,
   create: () => new T34Sim(),
