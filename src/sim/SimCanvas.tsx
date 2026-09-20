@@ -6,9 +6,11 @@ import { Machine } from '../three/Machine'
 import { Dunes } from './scenes/Dunes'
 import { Airfield } from './scenes/Airfield'
 import { Range } from './scenes/Range'
+import { Boulevard } from './scenes'
 import { Circuit } from './scenes/Circuit'
 import type { Keyboard } from './keyboard'
 import type { Sim, ViewName } from './types'
+import type { VelocipedeSim } from './velocipede'
 import type { FlyerSim } from './flyer'
 import type { Lotus49Sim } from './lotus49'
 import type { P51Sim } from './p51'
@@ -47,6 +49,7 @@ export function SimCanvas({
       }}
     >
       <Suspense fallback={null}>
+        {machine.slug === 'velocipede' && <Boulevard sim={sim as VelocipedeSim} />}
         {machine.slug === 'wright-flyer' && (
           <Dunes sim={sim as FlyerSim} accent={machine.accent} />
         )}

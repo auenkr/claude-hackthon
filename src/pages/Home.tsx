@@ -287,6 +287,7 @@ function StageMachine({
   const controls = useMemo(() => {
     const base = defaultControls(machine)
     // On the stage the machines idle: engines turning, nothing stowed.
+    if (machine.slug === 'velocipede') base.speed = 9
     if (machine.slug === 'p51-mustang') base.throttle = 55
     if (machine.slug === 'wright-flyer') base.engine = 60
     if (machine.slug === 't34-85') base.speed = 12
@@ -301,7 +302,9 @@ function StageMachine({
 
   // Scale every exhibit to a common display footprint, and stand it at a
   // three-quarter angle so the eye reads depth rather than a silhouette.
-  const scale = 4.4 / machine.radius
+  // The velocipede's tall, narrow silhouette reads much larger than its
+  // footprint, so it gets a smaller stage-only presentation scale.
+  const scale = (4.4 / machine.radius) * (machine.slug === 'velocipede' ? 0.48 : 1)
 
   return (
     <group

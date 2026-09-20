@@ -1,3 +1,4 @@
+import { Velocipede } from './Velocipede'
 import { Flyer } from './Flyer'
 import { Lotus49 } from './Lotus49'
 import { P51 } from './P51'
@@ -15,6 +16,8 @@ export function Machine({
   mount?: Mount
 }) {
   switch (machine.slug) {
+    case 'velocipede':
+      return <Velocipede controls={controls} />
     case 'wright-flyer':
       return <Flyer controls={controls} mount={mount} />
     case 'p51-mustang':

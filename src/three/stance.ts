@@ -43,3 +43,17 @@ export function p51MainRise(pitch: number) {
     P51_CONTACT.main.z * Math.sin(pitch)
   )
 }
+
+/**
+ * The velocipede's wheels: 36 and 32 inch, 1.17 m apart, with the datum on
+ * the ground midway between the contact points. The steering axis runs
+ * through the front axle, raked twenty degrees back.
+ */
+export const VELO = {
+  frontR: 0.457,
+  rearR: 0.4065,
+  frontZ: 0.6,
+  rearZ: -0.57,
+  rake: 20 * DEG,
+  crank: 0.14,
+}
