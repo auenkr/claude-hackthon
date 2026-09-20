@@ -12,7 +12,7 @@ We wanted to see them in action.
 
 What it does
 
-Mechanica is a museum of machines rebuilt from language and sketches.
+The Machine Archive is a museum of machines rebuilt from language and sketches.
 
 Each exhibit begins as a few hundred characters of classical text and becomes a complete 3D mechanism. Every part is dimensioned using versioned data with a cited source, and every movement is driven by simulated physics rather than keyframed animation.
 
@@ -26,7 +26,7 @@ Examples(This example will not be build, as it was already made in this project 
 
 1. Water-Powered Astronomical Clock Tower · 水运仪象台 Designed by Su Song and his engineer Han Gonglian and completed in 1092 in the Song capital. The eleven-meter tower used falling water to drive an armillary sphere, a celestial globe, and time-announcing figures. Assemble it part by part, then let the water take over. Its escapement divides continuous flow into equal beats—the ancestor of the mechanism ticking inside every mechanical watch.
 
-2. Seismoscope · 候风地动仪 Built by Zhang Heng in 132 AD in Luoyang. A bronze vessel is ringed by eight dragons. When a distant earthquake arrives, exactly one dragon drops its ball in the direction of the quake while the other seven lock. Arguably the world’s first earthquake instrument, it appears in Mechanica as two rival reconstructions: Wang Zhenduo’s 1951 design and Feng Rui’s 2005 interpretation. One click swaps the internal mechanism. Arm the east gate, inject a pulse, and watch the east dragon fire.
+2. Seismoscope · 候风地动仪 Built by Zhang Heng in 132 AD in Luoyang. A bronze vessel is ringed by eight dragons. When a distant earthquake arrives, exactly one dragon drops its ball in the direction of the quake while the other seven lock. Arguably the world’s first earthquake instrument, it appears in The Machine Archive as two rival reconstructions: Wang Zhenduo’s 1951 design and Feng Rui’s 2005 interpretation. One click swaps the internal mechanism. Arm the east gate, inject a pulse, and watch the east dragon fire.
 
 3. Odometer Drum Carriage · 记里鼓车 A Han-dynasty invention whose complete gear counts survive in Lu Daolong’s 1027 specification. The carriage measures distance as it rolls: two decimal gear reductions translate wheel rotations into a wooden figure’s drumbeat every li and a chime every ten li. It uses the same principle as the odometer in a modern car, executed in wood a millennium earlier.
 

@@ -35,7 +35,7 @@ export function Home() {
           gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping }}
         >
           <Suspense fallback={null}>
-            <Stage active={active} />
+            <Stage active={active} onSelect={setActive} />
           </Suspense>
         </Canvas>
 
@@ -43,7 +43,7 @@ export function Home() {
         <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-6 sm:p-10">
           <header>
             <h1 className="font-display text-[34px] leading-none tracking-tight text-ink sm:text-[44px]">
-              Mechanica
+              The Machine Archive
             </h1>
             <p className="placard mt-2 text-label">
               A museum of machines rebuilt from language and sketches
@@ -117,19 +117,21 @@ export function Home() {
 
       {/* ---------------------------------------------------------------- */}
       <section className="mx-auto max-w-5xl px-6 py-20 sm:py-28">
-        <p className="max-w-2xl font-display text-[22px] leading-[1.5] text-ink/85 sm:text-[26px]">
-          Reading about a machine is not the same as watching it work.
+        <div className="placard mb-5 text-label">Why this exhibition exists</div>
+        <p className="max-w-3xl font-display text-[22px] leading-[1.5] text-ink/85 sm:text-[28px]">
+          History is full of machines we can describe, but can no longer watch.
         </p>
         <div className="mt-8 grid max-w-3xl gap-6 text-[14px] leading-[1.75] text-label sm:grid-cols-2">
           <p>
-            Most reconstructions are one scholar’s interpretation, frozen in
-            bronze and displayed motionless behind glass — which is exactly the
-            wrong way to encounter a mechanism. Every exhibit here is
+            A surviving machine may be a corroded artifact, a manuscript
+            illustration, or only a few hundred characters of text. A
+            motionless reconstruction behind glass is exactly the wrong way to
+            encounter a mechanism. Every exhibit here is
             dimensioned from cited data and driven by its own geometry rather
             than by keyframed animation.
           </p>
           <p>
-            Pull a machine apart piece by piece, zoom in on a single pivot, and
+            Open a model, pull it apart piece by piece, zoom in on a single pivot, and
             select any component to see its dimensions and the source behind
             every value: a published text, a measured artifact, or a clearly
             labelled inference where we had to work it out ourselves.
@@ -147,12 +149,18 @@ export function Home() {
 
       {/* ---------------------------------------------------------------- */}
       <section className="mx-auto max-w-5xl px-6 pb-24">
-        <h2 className="placard mb-6 text-label">The collection</h2>
+        <div className="mb-8 flex items-end justify-between gap-6">
+          <div>
+            <div className="placard mb-2 text-label">Exhibition dashboard</div>
+            <h2 className="font-display text-[28px] text-ink sm:text-[34px]">The collection</h2>
+          </div>
+          <span className="font-mono text-[11px] text-label">{String(machines.length).padStart(2, '0')} active exhibits</span>
+        </div>
         <ul className="border-t border-rail/60">
           {machines.map((m) => (
             <li
               key={m.slug}
-              className="flex flex-wrap items-baseline gap-x-6 gap-y-2 border-b border-rail/60 py-6"
+              className="group relative grid gap-3 border-b border-rail/60 py-6 transition-colors hover:bg-gallery/55 sm:grid-cols-[110px_1fr_auto] sm:items-center sm:px-4"
             >
               <span
                 className="font-mono text-[11px] tabular-nums"
@@ -160,20 +168,18 @@ export function Home() {
               >
                 {m.years}
               </span>
-              <Link
-                to={`/machine/${m.slug}`}
-                className="font-display text-[22px] text-ink underline-offset-4 hover:underline"
-              >
-                {m.name}
-              </Link>
-              <span className="flex-1 text-[13px] text-label">{m.tagline}</span>
-              <Link
-                to={`/machine/${m.slug}/run`}
-                className="placard rounded-sm border px-2.5 py-1.5 text-label transition-colors hover:text-ink"
-                style={{ borderColor: 'var(--color-rail)' }}
-              >
-                Run it
-              </Link>
+              <div>
+                <Link
+                  to={`/machine/${m.slug}`}
+                  className="font-display text-[22px] text-ink after:absolute after:inset-0 after:content-['']"
+                >
+                  {m.name}
+                </Link>
+                <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-label">{m.tagline}</p>
+              </div>
+              <span className="placard flex items-center gap-2 text-label transition-colors group-hover:text-ink">
+                Open model <span aria-hidden="true">→</span>
+              </span>
             </li>
           ))}
         </ul>
@@ -194,7 +200,7 @@ export function Home() {
  * behind the front of the room, so whichever one is chosen rolls into a
  * spotlight that never moves.
  */
-function Stage({ active }: { active: number }) {
+function Stage({ active, onSelect }: { active: number; onSelect: (index: number) => void }) {
   const table = useRef<THREE.Group>(null)
   const spin = useRef(0)
   const { scene } = useThree()
@@ -267,7 +273,7 @@ function Stage({ active }: { active: number }) {
 
       <group ref={table} position={[0, 0, -PIVOT]}>
         {machines.map((m, i) => (
-          <StageMachine key={m.slug} machine={m} index={i} step={step} />
+          <StageMachine key={m.slug} machine={m} index={i} step={step} onSelect={onSelect} />
         ))}
       </group>
     </>
@@ -278,10 +284,12 @@ function StageMachine({
   machine,
   index,
   step,
+  onSelect,
 }: {
   machine: MachineSpec
   index: number
   step: number
+  onSelect: (index: number) => void
 }) {
   const angle = index * step
   const controls = useMemo(() => {
@@ -311,6 +319,16 @@ function StageMachine({
       position={[Math.sin(angle) * PIVOT, 0, Math.cos(angle) * PIVOT]}
       rotation={[0, angle - 0.62, 0]}
       scale={scale}
+      onClick={(event) => {
+        event.stopPropagation()
+        onSelect(index)
+      }}
+      onPointerEnter={() => {
+        document.body.style.cursor = 'pointer'
+      }}
+      onPointerLeave={() => {
+        document.body.style.cursor = ''
+      }}
     >
       <ExhibitProvider
         value={{

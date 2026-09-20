@@ -42,7 +42,7 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
             to="/"
             className="placard inline-flex items-center gap-1.5 text-label transition-colors hover:text-ink"
           >
-            <span aria-hidden="true">←</span> Mechanica
+            <span aria-hidden="true">←</span> The Machine Archive
           </Link>
           <h1 className="mt-4 font-display text-[30px] leading-[1.05] text-ink">
             {machine.name}
