@@ -290,6 +290,7 @@ function StageMachine({
     if (machine.slug === 'p51-mustang') base.throttle = 55
     if (machine.slug === 'wright-flyer') base.engine = 60
     if (machine.slug === 't34-85') base.speed = 12
+    if (machine.slug === 'lotus-49') base.throttle = 35
     return base
   }, [machine])
 

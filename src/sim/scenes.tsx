@@ -1,4 +1,3 @@
-import * as THREE from 'three'
 import { Ground, Scatter, Sun } from './Scenery'
 import { killDevil, airfield, RUNWAY, range } from './terrain'
 import type { FlyerSim } from './flyer'
@@ -124,7 +123,3 @@ export function Range({ sim }: { sim: T34Sim }) {
     </>
   )
 }
-
-/** Kept for callers that only need the raw fields without the JSX. */
-export { killDevil, airfield, range }
-export type { THREE }
