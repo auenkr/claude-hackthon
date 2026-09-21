@@ -11,20 +11,21 @@ import type { MachineSpec } from '../types'
 /** How long each machine holds the light before the stage turns. */
 const DWELL = 7000
 const PIVOT = 9
+const homeMachines = machines.filter((machine) => machine.slug !== 'velocipede')
 
 export function Home() {
   const [active, setActive] = useState(() =>
-    machines.findIndex((machine) => machine.slug === 't34-85'),
+    homeMachines.findIndex((machine) => machine.slug === 't34-85'),
   )
   const [paused, setPaused] = useState(false)
 
   useEffect(() => {
     if (paused) return
-    const t = setTimeout(() => setActive((i) => (i + 1) % machines.length), DWELL)
+    const t = setTimeout(() => setActive((i) => (i + 1) % homeMachines.length), DWELL)
     return () => clearTimeout(t)
   }, [active, paused])
 
-  const machine = machines[active]
+  const machine = homeMachines[active]
 
   return (
     <div className="min-h-full">
@@ -88,7 +89,7 @@ export function Home() {
               onMouseEnter={() => setPaused(true)}
               onMouseLeave={() => setPaused(false)}
             >
-              {machines.map((m, i) => (
+              {homeMachines.map((m, i) => (
                 <button
                   key={m.slug}
                   type="button"
@@ -156,10 +157,10 @@ export function Home() {
             <div className="placard mb-2 text-label">Exhibition dashboard</div>
             <h2 className="font-display text-[28px] text-ink sm:text-[34px]">The collection</h2>
           </div>
-          <span className="font-mono text-[11px] text-label">{String(machines.length).padStart(2, '0')} active exhibits</span>
+          <span className="font-mono text-[11px] text-label">{String(homeMachines.length).padStart(2, '0')} active exhibits</span>
         </div>
         <ul className="border-t border-rail/60">
-          {machines.map((m) => (
+          {homeMachines.map((m) => (
             <li
               key={m.slug}
               className="group relative grid gap-3 border-b border-rail/60 py-6 transition-colors hover:bg-gallery/55 sm:grid-cols-[110px_1fr_auto] sm:items-center sm:px-4"
@@ -238,7 +239,7 @@ function Stage({ active, onSelect }: { active: number; onSelect: (index: number)
     }
   }, [scene, target])
 
-  const step = (Math.PI * 2) / machines.length
+  const step = (Math.PI * 2) / homeMachines.length
 
   useFrame((_, dt) => {
     if (!table.current) return
@@ -294,7 +295,7 @@ function Stage({ active, onSelect }: { active: number; onSelect: (index: number)
       </mesh>
 
       <group ref={table} position={[0, 0, -PIVOT]}>
-        {machines.map((m, i) => (
+        {homeMachines.map((m, i) => (
           <StageMachine key={m.slug} machine={m} index={i} step={step} onSelect={onSelect} />
         ))}
       </group>
@@ -317,7 +318,6 @@ function StageMachine({
   const controls = useMemo(() => {
     const base = defaultControls(machine)
     // On the stage the machines idle: engines turning, nothing stowed.
-    if (machine.slug === 'velocipede') base.speed = 9
     if (machine.slug === 'p51-mustang') base.throttle = 55
     if (machine.slug === 'wright-flyer') base.engine = 60
     if (machine.slug === 't34-85') base.speed = 12
@@ -332,9 +332,7 @@ function StageMachine({
 
   // Scale every exhibit to a common display footprint, and stand it at a
   // three-quarter angle so the eye reads depth rather than a silhouette.
-  // The velocipede's tall, narrow silhouette reads much larger than its
-  // footprint, so it gets a smaller stage-only presentation scale.
-  const scale = (4.4 / machine.radius) * (machine.slug === 'velocipede' ? 0.48 : 1)
+  const scale = 4.4 / machine.radius
 
   return (
     <group
@@ -360,7 +358,7 @@ function StageMachine({
           xray: false,
           accent: machine.accent,
           parts,
-          select: () => {},
+          select: () => onSelect(index),
           hover: () => {},
         }}
       >
