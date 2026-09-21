@@ -78,6 +78,17 @@ export const lotus49: MachineSpec = {
       hint: 'Rack and pinion, feeding the front uprights directly — there is no power assistance and very little to cushion the driver from the road.',
     },
     {
+      id: 'brakes',
+      label: 'Brakes',
+      kind: 'slider',
+      min: 0,
+      max: 100,
+      step: 1,
+      value: 0,
+      unit: '%',
+      hint: 'Girling discs, outboard all round with a 60% front bias. Watch the tub dive on its springs and the wishbones follow it — and the discs run orange.',
+    },
+    {
       id: 'wing',
       label: 'Rear wing',
       kind: 'slider',
@@ -176,6 +187,32 @@ export const lotus49: MachineSpec = {
       ],
     },
     {
+      id: 'driver',
+      name: 'Driver',
+      group: 'Structure',
+      blurb:
+        'Reclined almost flat, with the fuel in bag tanks beside his hips and nothing holding him in the car but the sides of the seat. Seat belts were not compulsory in Formula One until 1972; in 1967 the received wisdom was that you were better off thrown clear.',
+      explode: [0, 1.0, 0.6],
+      dimensions: [
+        { label: 'Position', value: 'Reclined, feet ahead of the front axle line', source: NYE },
+        { label: 'Restraint', value: 'None fitted, 1967', source: NYE },
+        { label: 'Helmet', value: 'Open face with peak and goggles, or an early full face', source: NYE },
+      ],
+    },
+    {
+      id: 'brakes',
+      name: 'Girling disc brakes',
+      group: 'Running gear',
+      blurb:
+        'Solid discs outboard on all four uprights, with a 60% front bias. Under braking the weight moves forward, the nose dives on the springs, and the front tyres do most of the work — which is why the front discs run hottest.',
+      explode: [1.4, -0.1, 0],
+      dimensions: [
+        { label: 'Type', value: 'Girling solid discs, outboard', source: NYE },
+        { label: 'Front bias', value: '≈ 60%', source: INFER },
+        { label: 'Peak deceleration', value: '≈ 1.15 g, modelled', source: INFER },
+      ],
+    },
+    {
       id: 'suspension-front',
       name: 'Front suspension',
       group: 'Suspension',
@@ -185,6 +222,8 @@ export const lotus49: MachineSpec = {
       dimensions: [
         { label: 'Layout', value: 'Double wishbone, outboard coil-over', source: NYE },
         { label: 'Track', value: '1.52 m', source: CTL },
+        { label: 'Tyres', value: '5.50-13 Firestone, treaded', source: NYE },
+        { label: 'Movement', value: 'Wishbones pivot on the tub; the upright steers', source: CTL },
       ],
     },
     {
@@ -198,6 +237,8 @@ export const lotus49: MachineSpec = {
         { label: 'Layout', value: 'Top link, reversed lower wishbone, twin radius rods', source: NYE },
         { label: 'Mounting', value: 'To gearbox casing, not a separate frame', source: NYE },
         { label: 'Track', value: '1.54 m', source: CTL },
+        { label: 'Tyres', value: '7.00-15 Firestone, treaded', source: NYE },
+        { label: 'Static load', value: '≈ 58% of the car', source: INFER },
       ],
     },
     {

@@ -2,559 +2,465 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Mat, Part } from './Part'
-import { loft, loftSuper, merge, strut, type SuperSection } from './geometry'
+import { Skin } from './t34/Skin'
+import { buildLotus49 } from './lotus49/parts'
+import {
+  DEG,
+  EXHAUST_TIPS,
+  FRONT_R,
+  FRONT_X,
+  FRONT_Z,
+  PICKUP_F,
+  PICKUP_R,
+  REAR_R,
+  REAR_X,
+  REAR_Z,
+  RPM_IDLE,
+  RPM_LIMIT,
+  STEERING_WHEEL,
+  STEER_RATIO,
+  TRAVEL,
+  UPRIGHT_F,
+  UPRIGHT_R,
+  WING,
+} from './lotus49/dims'
 import type { Controls } from '../types'
 
 /**
- * Lotus 49, Zandvoort specification with the 49B's strutted wing available.
+ * Lotus 49, Zandvoort specification, with the 49B's strutted wing available.
  *
  * Model axes: +Z forward through the nose, +X to starboard, +Y up, metres.
- * The wheelbase is centred on the origin; the tyres sit on y = 0.
- * Everything behind the cockpit hangs off the engine and gearbox, because
- * on this car that is literally where the chassis stops.
+ * The tyres sit on y = 0 and the wheelbase is centred on the origin.
+ *
+ * Nothing here is keyframed. The wheels turn at road speed over their own
+ * radius and steer about their uprights; under braking the tub dives on its
+ * springs and the wishbones follow it, the discs glow, and on the overrun
+ * the megaphones spit. In the simulator all of that is driven by the
+ * physics; on the plinth the sliders stand in for it.
  */
 
-const DEG = Math.PI / 180
-
-const GREEN = { color: '#1d4a2c', metalness: 0.45, roughness: 0.32 }
-const YELLOW = { color: '#e6b422', metalness: 0.3, roughness: 0.4 }
-const ALUMINIUM = { color: '#a3a8b0', metalness: 0.9, roughness: 0.3 }
-const STEEL = { color: '#55595f', metalness: 0.92, roughness: 0.34 }
-const MAG = { color: '#8c877a', metalness: 0.7, roughness: 0.5 }
-const RUBBER = { color: '#1a1a1d', metalness: 0.05, roughness: 0.92 }
-const ENGINE = { color: '#6a6d72', metalness: 0.8, roughness: 0.42 }
-const DARK = { color: '#25272b', metalness: 0.4, roughness: 0.7 }
-
-// --- Hard points ------------------------------------------------------------
-const WHEELBASE = 2.36
-const FRONT_Z = WHEELBASE / 2
-const REAR_Z = -WHEELBASE / 2
-const FRONT_X = 0.76 // 1.52 m track
-const REAR_X = 0.77 // 1.54 m track
-const FRONT_R = 0.3
-const REAR_R = 0.33
-const FRONT_W = 0.24
-const REAR_W = 0.33
-
-const ENGINE_FACE = -0.3
-const NOSE_JOINT = 1.55
-
-// --- Tub loft ---------------------------------------------------------------
-// A stressed-skin box with softened corners, wide at the cockpit and
-// narrowing towards the front bulkhead. It stops dead at the engine face.
-const TUB: SuperSection[] = [
-  { z: NOSE_JOINT, y: 0.36, halfWidth: 0.28, top: 0.22, bottom: 0.26, power: 3.2 },
-  { z: 1.1, y: 0.37, halfWidth: 0.33, top: 0.26, bottom: 0.27, power: 3.2 },
-  { z: 0.6, y: 0.38, halfWidth: 0.36, top: 0.28, bottom: 0.28, power: 3.2 },
-  { z: 0.0, y: 0.38, halfWidth: 0.36, top: 0.25, bottom: 0.28, power: 3.2 },
-  { z: ENGINE_FACE, y: 0.38, halfWidth: 0.34, top: 0.21, bottom: 0.28, power: 3.2 },
-]
-
-// Glassfibre nose, open at the tip: the oval hole is the radiator intake.
-const NOSE: SuperSection[] = [
-  { z: NOSE_JOINT, y: 0.36, halfWidth: 0.28, top: 0.22, bottom: 0.26, power: 2.6 },
-  { z: 1.85, y: 0.35, halfWidth: 0.23, top: 0.17, bottom: 0.21, power: 2.4 },
-  { z: 2.08, y: 0.34, halfWidth: 0.18, top: 0.125, bottom: 0.15, power: 2.3 },
-  { z: 2.2, y: 0.34, halfWidth: 0.155, top: 0.1, bottom: 0.115, power: 2.2 },
-]
-
-/** Height of the crown at a station, following the tub then the nose. */
-function crownAt(z: number) {
-  const run = z > NOSE_JOINT ? NOSE : TUB
-  let i = 0
-  const sorted = [...run].sort((a, b) => a.z - b.z)
-  while (i < sorted.length - 2 && sorted[i + 1].z < z) i++
-  const p = sorted[i]
-  const q = sorted[i + 1]
-  const f = THREE.MathUtils.clamp((z - p.z) / (q.z - p.z), 0, 1)
-  return p.y + p.top + (q.y + q.top - p.y - p.top) * f
-}
+/** The channels a simulator may add beyond the exhibit's own sliders. */
+const readChannels = (c: Controls) => ({
+  throttle: (c.throttle ?? 0) / 100,
+  brakes: (c.brakes ?? 0) / 100,
+  steer: (c.steering ?? 0) * DEG,
+  wingUp: (c.wing ?? 0) / 100,
+  noseOff: (c.noseCone ?? 0) > 0.5,
+  /** km/h, from a simulator; otherwise the throttle stands in. */
+  speed: c.speed,
+  rpm: c.rpm,
+  /** 0–100: nose down under braking, tail down under power, roll to a side. */
+  dive: c.dive,
+  squat: c.squat,
+  roll: c.roll,
+  /** Frames of flame at the megaphones, counted by the simulator. */
+  pops: c.pops ?? 0,
+})
 
 export function Lotus49({ controls }: { controls: Controls }) {
-  const throttle = (controls.throttle ?? 0) / 100
-  const steer = (controls.steering ?? 0) * DEG
-  const wingUp = (controls.wing ?? 0) / 100
-  const noseOff = (controls.noseCone ?? 0) > 0.5
+  const ch = readChannels(controls)
+  const geo = useMemo(() => buildLotus49(), [])
 
-  // --- Geometry, built once -------------------------------------------------
-  const geo = useMemo(() => {
-    const tub = loftSuper(TUB, 28, { capStart: true, capEnd: true })
-    const nose = loftSuper(NOSE, 28, { capStart: false, capEnd: false })
-
-    // The yellow centre stripe, laid as a ribbon on the crown.
-    const ribbon: THREE.Vector3[][] = []
-    for (let z = -0.28; z <= 2.19; z += 0.08) {
-      const y = crownAt(z)
-      const w = z > NOSE_JOINT ? 0.05 + 0.02 * (2.2 - z) : 0.07
-      ribbon.push([
-        new THREE.Vector3(-w, y + 0.006, z),
-        new THREE.Vector3(w, y + 0.006, z),
-        new THREE.Vector3(w, y - 0.012, z),
-        new THREE.Vector3(-w, y - 0.012, z),
-      ])
-    }
-    const stripe = loft(ribbon, { capStart: false, capEnd: false })
-
-    // The intake lip, painted to match the stripe.
-    const lip = loftSuper(
-      [
-        { z: 2.13, y: 0.34, halfWidth: 0.17, top: 0.115, bottom: 0.13, power: 2.2 },
-        { z: 2.22, y: 0.34, halfWidth: 0.16, top: 0.105, bottom: 0.12, power: 2.2 },
-      ],
-      28,
-      { capStart: false, capEnd: false },
-    )
-
-    // Headrest fairing behind the driver, running down to the engine face.
-    const headrest = loftSuper(
-      [
-        { z: 0.08, y: 0.66, halfWidth: 0.17, top: 0.16, bottom: 0.01, power: 2.6 },
-        { z: -0.12, y: 0.65, halfWidth: 0.14, top: 0.11, bottom: 0.01, power: 2.6 },
-        { z: -0.3, y: 0.62, halfWidth: 0.1, top: 0.04, bottom: 0.01, power: 2.6 },
-      ],
-      20,
-    )
-
-    // Windscreen: a low wrap-round pane.
-    const screen = loftSuper(
-      [
-        { z: 0.92, y: 0.66, halfWidth: 0.2, top: 0.03, bottom: 0.0, power: 2.4 },
-        { z: 0.8, y: 0.66, halfWidth: 0.26, top: 0.12, bottom: 0.0, power: 2.4 },
-        { z: 0.7, y: 0.66, halfWidth: 0.28, top: 0.15, bottom: 0.0, power: 2.5 },
-      ],
-      20,
-      { capStart: false, capEnd: false },
-    )
-
-    // Exhaust primaries: four a side, from the outer face of each head down
-    // and back to a collector alongside the gearbox.
-    const primaries = (side: number) =>
-      merge(
-        [0, 1, 2, 3].map((i) =>
-          strut(
-            [side * 0.34, 0.5, -0.42 - i * 0.14],
-            [side * 0.27, 0.56, -1.12],
-            0.021,
-            8,
-          ),
-        ),
-      )
-
-    // Wishbones and links, as tubes between their real pick-up points.
-    const frontArms = (side: number) =>
-      merge([
-        strut([side * 0.3, 0.52, 1.0], [side * 0.58, 0.46, FRONT_Z], 0.014),
-        strut([side * 0.3, 0.52, 1.42], [side * 0.58, 0.46, FRONT_Z], 0.014),
-        strut([side * 0.3, 0.19, 0.95], [side * 0.58, 0.16, FRONT_Z], 0.016),
-        strut([side * 0.3, 0.19, 1.44], [side * 0.58, 0.16, FRONT_Z], 0.016),
-        // Steering arm, from the rack ahead of the axle line.
-        strut([side * 0.2, 0.34, 1.36], [side * 0.56, 0.34, 1.29], 0.011),
-        // Coil-over damper, outboard.
-        strut([side * 0.32, 0.6, 1.24], [side * 0.55, 0.26, FRONT_Z], 0.012),
-      ])
-    const frontSpring = (side: number) =>
-      strut([side * 0.36, 0.54, 1.23], [side * 0.5, 0.33, FRONT_Z], 0.038, 12)
-
-    const rearArms = (side: number) =>
-      merge([
-        // Top link off the gearbox casing.
-        strut([side * 0.15, 0.6, -1.2], [side * 0.6, 0.5, REAR_Z], 0.014),
-        // Reversed lower wishbone.
-        strut([side * 0.15, 0.22, -1.0], [side * 0.6, 0.19, REAR_Z], 0.016),
-        strut([side * 0.15, 0.22, -1.46], [side * 0.6, 0.19, REAR_Z], 0.016),
-        // Twin radius rods forward to the back of the tub.
-        strut([side * 0.6, 0.46, REAR_Z], [side * 0.34, 0.5, ENGINE_FACE], 0.013),
-        strut([side * 0.6, 0.22, REAR_Z], [side * 0.34, 0.3, ENGINE_FACE], 0.013),
-        // Coil-over.
-        strut([side * 0.2, 0.64, -1.14], [side * 0.55, 0.28, REAR_Z], 0.012),
-        // Driveshaft.
-        strut([side * 0.16, 0.36, REAR_Z], [side * 0.58, 0.34, REAR_Z], 0.02, 10),
-      ])
-    const rearSpring = (side: number) =>
-      strut([side * 0.26, 0.57, -1.15], [side * 0.5, 0.34, REAR_Z], 0.038, 12)
-
-    return {
-      tub,
-      nose,
-      stripe,
-      lip,
-      headrest,
-      screen,
-      exhaustR: primaries(1),
-      exhaustL: primaries(-1),
-      frontArmsR: frontArms(1),
-      frontArmsL: frontArms(-1),
-      frontSpringR: frontSpring(1),
-      frontSpringL: frontSpring(-1),
-      rearArmsR: rearArms(1),
-      rearArmsL: rearArms(-1),
-      rearSpringR: rearSpring(1),
-      rearSpringL: rearSpring(-1),
-    }
-  }, [])
-
-  // --- Animation ------------------------------------------------------------
+  // --- Refs the frame loop drives ------------------------------------------
+  const body = useRef<THREE.Group>(null)
   const spinners = useRef<(THREE.Group | null)[]>([])
   const steerers = useRef<(THREE.Group | null)[]>([])
-  const wheel = useRef<THREE.Group>(null)
+  const hubs = useRef<(THREE.Group | null)[]>([])
+  const uppers = useRef<(THREE.Group | null)[]>([])
+  const lowers = useRef<(THREE.Group | null)[]>([])
+  const discs = useRef<(THREE.Mesh | null)[]>([])
+  const wheelRim = useRef<THREE.Group>(null)
+  const helmet = useRef<THREE.Group>(null)
   const wingRef = useRef<THREE.Group>(null)
-  const strutsRef = useRef<(THREE.Mesh | null)[]>([])
+  const struts = useRef<(THREE.Mesh | null)[]>([])
   const noseRef = useRef<THREE.Group>(null)
   const engineRef = useRef<THREE.Group>(null)
+  const tips = useRef<(THREE.Mesh | null)[]>([])
+  const flames = useRef<(THREE.Mesh | null)[]>([])
   const clock = useRef(0)
-
-  const WING_LOW = 0.62
-  const WING_HIGH = 1.22
-  const STRUT_BASE = 0.46
+  const lastPops = useRef(ch.pops)
+  const flame = useRef(0)
 
   useFrame((_, dt) => {
-    const k = 1 - Math.exp(-6 * dt)
+    const k = 1 - Math.exp(-8 * dt)
     clock.current += dt
 
-    // Wheels: a simulator hands us real road speed; on the plinth a spinning
-    // exhibit reads as running, and twelve metres a second at full throttle
-    // blurs the tread without looking silly.
-    const v = controls.speed !== undefined ? controls.speed / 3.6 : throttle * 12
+    // On the plinth the sliders imply the rest; a simulator supplies it.
+    const v = ch.speed !== undefined ? ch.speed / 3.6 : ch.throttle * 12
+    const rpm = ch.rpm ?? RPM_IDLE + ch.throttle * (RPM_LIMIT - 800 - RPM_IDLE)
+    const dive = (ch.dive ?? ch.brakes * 100) / 100
+    const squat = (ch.squat ?? ch.throttle * 35) / 100
+    const roll = (ch.roll ?? 0) * DEG
+
+    // --- Wheels: spin at road speed, steer about the uprights ---------------
     spinners.current.forEach((g, i) => {
       if (!g) return
-      const r = i < 2 ? FRONT_R : REAR_R
-      g.rotation.x += (v / r) * dt
+      g.rotation.x += (v / (i < 2 ? FRONT_R : REAR_R)) * dt
+    })
+    for (const g of steerers.current) {
+      if (g) g.rotation.y += (ch.steer - g.rotation.y) * k
+    }
+    if (wheelRim.current) {
+      wheelRim.current.rotation.z += (-ch.steer * STEER_RATIO - wheelRim.current.rotation.z) * k
+    }
+    if (helmet.current) {
+      // The driver looks into the corner and leans against the g.
+      helmet.current.rotation.y += (ch.steer * 1.4 - helmet.current.rotation.y) * k
+      helmet.current.rotation.z += (-roll * 1.5 - helmet.current.rotation.z) * k
+    }
+
+    // --- Suspension: the tub moves, the wheels stay on the road -----------
+    // Positive dive drops the nose; positive squat drops the tail; roll
+    // drops the outside. The wishbones rotate about their inboard pivots to
+    // follow, which is exactly the motion the real arms make.
+    const dropF = dive * TRAVEL - squat * TRAVEL * 0.3
+    const dropR = squat * TRAVEL - dive * TRAVEL * 0.25
+    if (body.current) {
+      const pitch = Math.atan2(dropF - dropR, FRONT_Z - REAR_Z)
+      body.current.rotation.x += (pitch - body.current.rotation.x) * k
+      body.current.rotation.z += (roll * 0.55 - body.current.rotation.z) * k
+      body.current.position.y += (-(dropF + dropR) / 2 - body.current.position.y) * k
+    }
+    const armF = UPRIGHT_F.x - PICKUP_F.upper.x
+    const armR = UPRIGHT_R.x - PICKUP_R.lower.x
+    uppers.current.forEach((g, i) => {
+      if (!g) return
+      const side = i % 2 === 0 ? 1 : -1
+      const drop = (i < 2 ? dropF : dropR) + side * Math.sin(roll) * 0.35
+      const target = side * Math.asin(THREE.MathUtils.clamp(drop / (i < 2 ? armF : armR), -0.5, 0.5))
+      g.rotation.z += (target - g.rotation.z) * k
+    })
+    lowers.current.forEach((g, i) => {
+      if (!g) return
+      const side = i % 2 === 0 ? 1 : -1
+      const drop = (i < 2 ? dropF : dropR) + side * Math.sin(roll) * 0.35
+      const target = side * Math.asin(THREE.MathUtils.clamp(drop / (i < 2 ? armF : armR), -0.5, 0.5))
+      g.rotation.z += (target - g.rotation.z) * k
     })
 
-    for (const g of steerers.current) {
-      if (!g) continue
-      g.rotation.y += (steer - g.rotation.y) * k
-    }
-    if (wheel.current) {
-      // The rim turns further than the road wheels do.
-      wheel.current.rotation.z += (-steer * 2.6 - wheel.current.rotation.z) * k
-    }
+    // --- Brakes: Girling discs run orange when worked ----------------------
+    discs.current.forEach((m, i) => {
+      if (!m) return
+      const mat = m.material as THREE.MeshStandardMaterial
+      const heat = ch.brakes * ch.brakes * (i < 2 ? 1 : 0.6) * Math.min(1, v / 20)
+      mat.emissiveIntensity += (heat * 2.6 - mat.emissiveIntensity) * (1 - Math.exp(-3 * dt))
+    })
 
+    // --- Exhaust: heat in the megaphones, flame on the overrun -------------
+    if (ch.pops !== lastPops.current) {
+      lastPops.current = ch.pops
+      flame.current = 1
+    }
+    flame.current = Math.max(0, flame.current - dt * 9)
+    const heat = (rpm / RPM_LIMIT) * (0.25 + 0.75 * ch.throttle)
+    tips.current.forEach((m) => {
+      if (!m) return
+      const mat = m.material as THREE.MeshStandardMaterial
+      mat.emissiveIntensity += (heat * 0.9 - mat.emissiveIntensity) * (1 - Math.exp(-1.5 * dt))
+    })
+    flames.current.forEach((m, i) => {
+      if (!m) return
+      const lit = flame.current > 0.05 && Math.sin(clock.current * 80 + i * 2) > -0.3
+      m.visible = lit
+      m.scale.set(0.8 + Math.random() * 0.5, 0.8 + Math.random() * 0.5, 0.6 + flame.current * 1.4)
+    })
+
+    // --- Wing on its struts, nose on its fasteners -------------------------
     if (wingRef.current) {
-      const target = WING_LOW + (WING_HIGH - WING_LOW) * wingUp
+      const target = WING.low + (WING.high - WING.low) * ch.wingUp
       wingRef.current.position.y += (target - wingRef.current.position.y) * k
-      const h = Math.max(0.01, wingRef.current.position.y - 0.02 - STRUT_BASE)
-      for (const s of strutsRef.current) {
-        if (!s) continue
-        s.scale.y = h
-        s.position.y = STRUT_BASE + h / 2
-      }
+      const h = Math.max(0.01, wingRef.current.position.y - 0.02 - WING.strutBase)
+      for (const s of struts.current) if (s) s.scale.y = h
     }
-
     if (noseRef.current) {
-      const tz = noseOff ? 0.9 : 0
-      const ty = noseOff ? 0.06 : 0
-      noseRef.current.position.z += (tz - noseRef.current.position.z) * k
-      noseRef.current.position.y += (ty - noseRef.current.position.y) * k
+      noseRef.current.position.z += ((ch.noseOff ? 0.9 : 0) - noseRef.current.position.z) * k
+      noseRef.current.position.y += ((ch.noseOff ? 0.06 : 0) - noseRef.current.position.y) * k
     }
 
-    // A DFV at idle rocks on its mounts. Barely.
+    // A DFV rocks on its mounts: a lumpy idle, a fine buzz at nine thousand.
     if (engineRef.current) {
-      const amp = throttle > 0.01 ? 0.0025 + throttle * 0.002 : 0
-      engineRef.current.position.y = Math.sin(clock.current * (40 + throttle * 60)) * amp
+      const amp = 0.0015 + (rpm / RPM_LIMIT) * 0.0012
+      engineRef.current.position.y = Math.sin(clock.current * (rpm / 60) * 0.5) * amp
     }
   })
 
   const sides = [1, -1]
-  const trumpetZ = [-0.42, -0.56, -0.7, -0.84]
 
   return (
     <group>
-      {/* ------------------------------------------------------------------ */}
-      <Part id="tub">
-        <mesh geometry={geo.tub} castShadow receiveShadow>
-          <Mat {...GREEN} />
-        </mesh>
-        <mesh geometry={geo.stripe} castShadow>
-          <Mat {...YELLOW} />
-        </mesh>
-        {/* Radiator core, sitting inside the nose behind the intake. */}
-        <mesh position={[0, 0.4, 1.66]}>
-          <boxGeometry args={[0.42, 0.34, 0.07]} />
-          <Mat {...DARK} />
-        </mesh>
-        {/* Front bulkhead and the rack sitting on it. */}
-        <mesh position={[0, 0.36, 1.53]}>
-          <boxGeometry args={[0.5, 0.42, 0.04]} />
-          <Mat {...ALUMINIUM} />
-        </mesh>
-        <mesh position={[0, 0.34, 1.36]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.02, 0.02, 0.44, 10]} />
-          <Mat {...STEEL} />
-        </mesh>
-      </Part>
+      {/* --- Everything that rides on the springs --------------------------- */}
+      <group ref={body}>
+        <Part id="tub">
+          <mesh geometry={geo.tub} castShadow receiveShadow>
+            <Skin metalness={0.45} roughness={0.35} />
+          </mesh>
+        </Part>
 
-      <Part id="nose">
-        <group ref={noseRef}>
-          <mesh geometry={geo.nose} castShadow receiveShadow>
-            <Mat {...GREEN} />
-          </mesh>
-          <mesh geometry={geo.lip} castShadow>
-            <Mat {...YELLOW} />
-          </mesh>
-        </group>
-      </Part>
-
-      {/* ------------------------------------------------------------------ */}
-      <Part id="cockpit">
-        {/* The opening itself. */}
-        <mesh position={[0, 0.655, 0.46]}>
-          <boxGeometry args={[0.46, 0.03, 0.7]} />
-          <Mat {...DARK} />
-        </mesh>
-        <mesh geometry={geo.headrest} castShadow>
-          <Mat {...GREEN} />
-        </mesh>
-        <mesh geometry={geo.screen}>
-          <Mat color="#9fd4de" metalness={0.1} roughness={0.05} opacity={0.32} />
-        </mesh>
-        {/* Roll hoop: one low bar, 1967 protection. */}
-        <mesh position={[0, 0.7, -0.02]} rotation={[0, 0, 0]}>
-          <torusGeometry args={[0.2, 0.017, 10, 24, Math.PI]} />
-          <Mat {...ALUMINIUM} />
-        </mesh>
-        {sides.map((side) => (
-          <mesh key={side} position={[side * 0.2, 0.67, -0.02]}>
-            <cylinderGeometry args={[0.017, 0.017, 0.08, 10]} />
-            <Mat {...ALUMINIUM} />
-          </mesh>
-        ))}
-        {/* Steering wheel, small and near-vertical. */}
-        <group ref={wheel} position={[0, 0.6, 0.66]} rotation={[-70 * DEG, 0, 0]}>
-          <mesh>
-            <torusGeometry args={[0.135, 0.014, 10, 32]} />
-            <Mat color="#3b2a1d" metalness={0.2} roughness={0.6} />
-          </mesh>
-          {[0, 1, 2].map((i) => (
-            <mesh key={i} rotation={[0, 0, (i * Math.PI * 2) / 3]}>
-              <boxGeometry args={[0.02, 0.135, 0.012]} />
-              <Mat {...ALUMINIUM} />
-            </mesh>
-          ))}
-        </group>
-        {/* Mirrors on stalks. */}
-        {sides.map((side) => (
-          <group key={side} position={[side * 0.36, 0.72, 0.78]}>
-            <mesh position={[0, -0.03, 0]}>
-              <cylinderGeometry args={[0.006, 0.006, 0.08, 6]} />
-              <Mat {...STEEL} />
-            </mesh>
-            <mesh position={[0, 0.02, 0]}>
-              <boxGeometry args={[0.08, 0.05, 0.02]} />
-              <Mat {...DARK} />
+        <Part id="nose">
+          <group ref={noseRef}>
+            <mesh geometry={geo.nose} castShadow receiveShadow>
+              <Skin metalness={0.4} roughness={0.35} />
             </mesh>
           </group>
-        ))}
-      </Part>
-
-      {/* ------------------------------------------------------------------ */}
-      <group ref={engineRef}>
-        <Part id="engine">
-          {/* Block, with the two banks at 90°. */}
-          <mesh position={[0, 0.4, -0.65]} castShadow>
-            <boxGeometry args={[0.44, 0.34, 0.68]} />
-            <Mat {...ENGINE} />
-          </mesh>
-          {sides.map((side) => (
-            <mesh
-              key={side}
-              position={[side * 0.2, 0.55, -0.65]}
-              rotation={[0, 0, side * 45 * DEG]}
-              castShadow
-            >
-              <boxGeometry args={[0.24, 0.2, 0.64]} />
-              <Mat color="#7a7d82" metalness={0.85} roughness={0.38} />
-            </mesh>
-          ))}
-          {/* Cam covers. */}
-          {sides.map((side) => (
-            <mesh
-              key={side}
-              position={[side * 0.29, 0.64, -0.65]}
-              rotation={[0, 0, side * 45 * DEG]}
-            >
-              <boxGeometry args={[0.16, 0.05, 0.6]} />
-              <Mat color="#3a3d43" metalness={0.6} roughness={0.5} />
-            </mesh>
-          ))}
-          {/* Eight injection trumpets standing in the V. */}
-          {sides.map((side) =>
-            trumpetZ.map((z) => (
-              <mesh key={`${side}-${z}`} position={[side * 0.085, 0.78, z]} castShadow>
-                <cylinderGeometry args={[0.045, 0.03, 0.14, 12]} />
-                <Mat {...ALUMINIUM} />
-              </mesh>
-            )),
-          )}
-          {/* Bell housing at the front face, bolted to the tub. */}
-          <mesh position={[0, 0.4, -0.31]}>
-            <boxGeometry args={[0.5, 0.4, 0.04]} />
-            <Mat {...ALUMINIUM} />
-          </mesh>
         </Part>
-      </group>
 
-      <Part id="gearbox">
-        <mesh position={[0, 0.38, -1.28]} castShadow>
-          <boxGeometry args={[0.3, 0.32, 0.56]} />
-          <Mat {...ENGINE} />
-        </mesh>
-        <mesh position={[0, 0.38, -1.02]}>
-          <cylinderGeometry args={[0.19, 0.19, 0.08, 20]} />
-          <Mat {...ALUMINIUM} />
-        </mesh>
-        {/* Rear plate and oil tank. */}
-        <mesh position={[0, 0.38, -1.58]}>
-          <boxGeometry args={[0.26, 0.28, 0.05]} />
-          <Mat {...ALUMINIUM} />
-        </mesh>
-        <mesh position={[0, 0.62, -1.28]}>
-          <cylinderGeometry args={[0.07, 0.07, 0.3, 14]} />
-          <Mat {...ALUMINIUM} />
-        </mesh>
-      </Part>
-
-      {/* Exhausts: primaries into a collector, megaphone aft over the box. */}
-      {sides.map((side) => (
-        <Part key={side} id="exhaust" mirror={side < 0}>
-          <mesh geometry={side > 0 ? geo.exhaustR : geo.exhaustL} castShadow>
-            <Mat color="#6d5a48" metalness={0.75} roughness={0.55} />
+        <Part id="cockpit">
+          <mesh geometry={geo.cockpit} castShadow>
+            <Skin metalness={0.5} roughness={0.45} />
           </mesh>
-          <mesh position={[side * 0.27, 0.57, -1.48]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <cylinderGeometry args={[0.045, 0.036, 0.72, 12]} />
-            <Mat color="#6d5a48" metalness={0.75} roughness={0.55} />
+          <mesh geometry={geo.screen}>
+            <Mat color="#9fd4de" metalness={0.1} roughness={0.05} opacity={0.32} />
           </mesh>
-        </Part>
-      ))}
-
-      {/* ------------------------------------------------------------------ */}
-      {sides.map((side) => (
-        <Part key={side} id="suspension-front" mirror={side < 0}>
-          <mesh geometry={side > 0 ? geo.frontArmsR : geo.frontArmsL} castShadow>
-            <Mat {...STEEL} />
-          </mesh>
-          <mesh geometry={side > 0 ? geo.frontSpringR : geo.frontSpringL}>
-            <Mat color="#8a2a2a" metalness={0.5} roughness={0.5} />
-          </mesh>
-          {/* Upright. */}
-          <mesh position={[side * 0.6, 0.3, FRONT_Z]}>
-            <boxGeometry args={[0.06, 0.34, 0.1]} />
-            <Mat {...ALUMINIUM} />
-          </mesh>
-        </Part>
-      ))}
-
-      {sides.map((side) => (
-        <Part key={side} id="suspension-rear" mirror={side < 0}>
-          <mesh geometry={side > 0 ? geo.rearArmsR : geo.rearArmsL} castShadow>
-            <Mat {...STEEL} />
-          </mesh>
-          <mesh geometry={side > 0 ? geo.rearSpringR : geo.rearSpringL}>
-            <Mat color="#8a2a2a" metalness={0.5} roughness={0.5} />
-          </mesh>
-          <mesh position={[side * 0.62, 0.34, REAR_Z]}>
-            <boxGeometry args={[0.06, 0.36, 0.12]} />
-            <Mat {...ALUMINIUM} />
-          </mesh>
-        </Part>
-      ))}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Front wheels steer about the upright, then spin about the hub. */}
-      {sides.map((side, s) => (
-        <Part key={side} id="wheels" mirror={side < 0}>
           <group
-            ref={(el) => {
-              steerers.current[s] = el
-            }}
-            position={[side * FRONT_X, FRONT_R, FRONT_Z]}
+            ref={wheelRim}
+            position={[0, STEERING_WHEEL.y, STEERING_WHEEL.z]}
+            rotation={[STEERING_WHEEL.rake, 0, 0]}
           >
+            <mesh geometry={geo.steeringWheel} castShadow>
+              <Skin metalness={0.3} roughness={0.6} />
+            </mesh>
+          </group>
+        </Part>
+
+        <Part id="driver">
+          <mesh geometry={geo.driver} castShadow>
+            <Skin metalness={0.05} roughness={0.9} />
+          </mesh>
+          <group ref={helmet} position={[0, 0.84, 0.16]}>
+            <mesh geometry={geo.helmet} castShadow>
+              <Skin metalness={0.3} roughness={0.35} />
+            </mesh>
+          </group>
+        </Part>
+
+        <group ref={engineRef}>
+          <Part id="engine">
+            <mesh geometry={geo.engine} castShadow>
+              <Skin metalness={0.75} roughness={0.45} />
+            </mesh>
+          </Part>
+        </group>
+
+        <Part id="gearbox">
+          <mesh geometry={geo.gearbox} castShadow>
+            <Skin metalness={0.7} roughness={0.5} />
+          </mesh>
+        </Part>
+
+        {sides.map((side, s) => (
+          <Part key={side} id="exhaust" mirror={side < 0}>
+            <mesh geometry={s === 0 ? geo.exhaustR : geo.exhaustL} castShadow>
+              <Skin metalness={0.7} roughness={0.55} />
+            </mesh>
+            {/* The last hand's breadth of megaphone, which shows the heat. */}
+            <mesh
+              ref={(el) => {
+                tips.current[s] = el
+              }}
+              position={[EXHAUST_TIPS[s][0], EXHAUST_TIPS[s][1], EXHAUST_TIPS[s][2] + 0.1]}
+              rotation={[Math.PI / 2, 0, 0]}
+            >
+              <cylinderGeometry args={[0.05, 0.063, 0.22, 12, 1, true]} />
+              <meshStandardMaterial
+                color="#6b5443"
+                emissive="#ff6a1a"
+                emissiveIntensity={0}
+                metalness={0.7}
+                roughness={0.5}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+            <mesh
+              ref={(el) => {
+                flames.current[s] = el
+              }}
+              position={[EXHAUST_TIPS[s][0], EXHAUST_TIPS[s][1], EXHAUST_TIPS[s][2] - 0.14]}
+              rotation={[-Math.PI / 2, 0, 0]}
+              visible={false}
+            >
+              <coneGeometry args={[0.05, 0.3, 8]} />
+              <meshBasicMaterial
+                color="#ffb347"
+                transparent
+                opacity={0.85}
+                depthWrite={false}
+                blending={THREE.AdditiveBlending}
+                toneMapped={false}
+              />
+            </mesh>
+          </Part>
+        ))}
+
+        {/* Wishbones pivot on the tub and gearbox, so they ride with the body. */}
+        {sides.map((side, s) => (
+          <Part key={side} id="suspension-front" mirror={side < 0}>
             <group
               ref={(el) => {
-                spinners.current[s] = el
+                uppers.current[s] = el
               }}
+              position={[side * PICKUP_F.upper.x, PICKUP_F.upper.y, 0]}
             >
-              <Wheel radius={FRONT_R} width={FRONT_W} rim={0.19} side={side} />
+              <mesh geometry={s === 0 ? geo.frontUpperR : geo.frontUpperL} castShadow>
+                <Skin metalness={0.85} roughness={0.4} />
+              </mesh>
             </group>
-          </group>
-        </Part>
-      ))}
+            <group
+              ref={(el) => {
+                lowers.current[s] = el
+              }}
+              position={[side * PICKUP_F.lower.x, PICKUP_F.lower.y, 0]}
+            >
+              <mesh geometry={s === 0 ? geo.frontLowerR : geo.frontLowerL} castShadow>
+                <Skin metalness={0.85} roughness={0.4} />
+              </mesh>
+            </group>
+            <mesh geometry={s === 0 ? geo.frontStaticR : geo.frontStaticL} castShadow>
+              <Skin metalness={0.8} roughness={0.45} />
+            </mesh>
+          </Part>
+        ))}
+        {sides.map((side, s) => (
+          <Part key={side} id="suspension-rear" mirror={side < 0}>
+            <group
+              ref={(el) => {
+                uppers.current[2 + s] = el
+              }}
+              position={[side * PICKUP_R.top.x, PICKUP_R.top.y, PICKUP_R.top.z]}
+            >
+              <mesh geometry={s === 0 ? geo.rearTopR : geo.rearTopL} castShadow>
+                <Skin metalness={0.85} roughness={0.4} />
+              </mesh>
+            </group>
+            <group
+              ref={(el) => {
+                lowers.current[2 + s] = el
+              }}
+              position={[side * PICKUP_R.lower.x, PICKUP_R.lower.y, 0]}
+            >
+              <mesh geometry={s === 0 ? geo.rearLowerR : geo.rearLowerL} castShadow>
+                <Skin metalness={0.85} roughness={0.4} />
+              </mesh>
+            </group>
+            <mesh geometry={s === 0 ? geo.rearStaticR : geo.rearStaticL} castShadow>
+              <Skin metalness={0.8} roughness={0.45} />
+            </mesh>
+          </Part>
+        ))}
+      </group>
+
+      {/* --- Everything that stands on the road ---------------------------- */}
+      {/* Front: the upright steers, the wheel spins inside it. */}
       {sides.map((side, s) => (
-        <Part key={side} id="wheels" mirror={side < 0}>
-          <group
-            ref={(el) => {
-              spinners.current[2 + s] = el
-            }}
-            position={[side * REAR_X, REAR_R, REAR_Z]}
-          >
-            <Wheel radius={REAR_R} width={REAR_W} rim={0.2} side={side} />
-          </group>
-        </Part>
+        <group key={`f${side}`}>
+          <Part id="suspension-front" mirror={side < 0}>
+            <group
+              ref={(el) => {
+                steerers.current[s] = el
+              }}
+              position={[side * UPRIGHT_F.x, UPRIGHT_F.y, FRONT_Z]}
+            >
+              <mesh geometry={geo.uprightF} castShadow>
+                <Skin metalness={0.85} roughness={0.4} />
+              </mesh>
+              <Part id="brakes" mirror={side < 0}>
+                <mesh
+                  ref={(el) => {
+                    discs.current[s] = el
+                  }}
+                  geometry={geo.discF}
+                  position={[side * 0.09, 0, 0]}
+                >
+                  <meshStandardMaterial
+                    color="#55585e"
+                    emissive="#ff5a12"
+                    emissiveIntensity={0}
+                    metalness={0.85}
+                    roughness={0.45}
+                  />
+                </mesh>
+              </Part>
+              <Part id="wheels" mirror={side < 0}>
+                <group
+                  ref={(el) => {
+                    hubs.current[s] = el
+                  }}
+                  position={[side * (FRONT_X - UPRIGHT_F.x), 0, 0]}
+                >
+                  <group
+                    ref={(el) => {
+                      spinners.current[s] = el
+                    }}
+                  >
+                    <mesh geometry={s === 0 ? geo.wheelFR : geo.wheelFL} castShadow>
+                      <Skin metalness={0.55} roughness={0.7} />
+                    </mesh>
+                  </group>
+                </group>
+              </Part>
+            </group>
+          </Part>
+        </group>
+      ))}
+      {/* Rear: fixed uprights, wheels spinning, the wing struts standing on them. */}
+      {sides.map((side, s) => (
+        <group key={`r${side}`} position={[side * UPRIGHT_R.x, UPRIGHT_R.y, REAR_Z]}>
+          <Part id="suspension-rear" mirror={side < 0}>
+            <mesh geometry={geo.uprightR} castShadow>
+              <Skin metalness={0.85} roughness={0.4} />
+            </mesh>
+          </Part>
+          <Part id="brakes" mirror={side < 0}>
+            <mesh
+              ref={(el) => {
+                discs.current[2 + s] = el
+              }}
+              geometry={geo.discR}
+              position={[side * 0.09, 0, 0]}
+            >
+              <meshStandardMaterial
+                color="#55585e"
+                emissive="#ff5a12"
+                emissiveIntensity={0}
+                metalness={0.85}
+                roughness={0.45}
+              />
+            </mesh>
+          </Part>
+          <Part id="wheels" mirror={side < 0}>
+            <group
+              ref={(el) => {
+                spinners.current[2 + s] = el
+              }}
+              position={[side * (REAR_X - UPRIGHT_R.x), 0, 0]}
+            >
+              <mesh geometry={s === 0 ? geo.wheelRR : geo.wheelRL} castShadow>
+                <Skin metalness={0.55} roughness={0.7} />
+              </mesh>
+            </group>
+          </Part>
+        </group>
       ))}
 
-      {/* ------------------------------------------------------------------ */}
       <Part id="wing">
-        <group ref={wingRef} position={[0, WING_LOW, -1.36]}>
-          <mesh rotation={[-8 * DEG, 0, 0]} castShadow>
-            <boxGeometry args={[1.3, 0.025, 0.36]} />
-            <Mat {...GREEN} />
+        <group ref={wingRef} position={[0, WING.low, WING.z]}>
+          <mesh geometry={geo.wing} castShadow>
+            <Skin metalness={0.45} roughness={0.35} />
           </mesh>
-          {sides.map((side) => (
-            <mesh key={side} position={[side * 0.66, 0.02, 0]} castShadow>
-              <boxGeometry args={[0.02, 0.15, 0.4]} />
-              <Mat {...YELLOW} />
-            </mesh>
-          ))}
         </group>
-        {/* Struts, straight down to the rear uprights. Unsprung. */}
+        {/* Struts straight down to the rear uprights. Unsprung, as raced. */}
         {sides.map((side, s) => (
           <mesh
             key={side}
             ref={(el) => {
-              strutsRef.current[s] = el
+              struts.current[s] = el
             }}
-            position={[side * 0.55, STRUT_BASE, -1.3]}
+            geometry={geo.strut}
+            position={[side * WING.strutX, WING.strutBase, WING.z + 0.06]}
           >
-            <cylinderGeometry args={[0.016, 0.016, 1, 8]} />
-            <Mat {...STEEL} />
+            <Skin metalness={0.85} roughness={0.4} />
           </mesh>
         ))}
       </Part>
-    </group>
-  )
-}
-
-/** A treaded tyre on a cast magnesium wheel with a knock-off hub. */
-function Wheel({
-  radius,
-  width,
-  rim,
-  side,
-}: {
-  radius: number
-  width: number
-  rim: number
-  side: number
-}) {
-  return (
-    <group rotation={[0, 0, Math.PI / 2]}>
-      <mesh castShadow>
-        <cylinderGeometry args={[radius, radius, width, 28]} />
-        <Mat {...RUBBER} />
-      </mesh>
-      <mesh>
-        <cylinderGeometry args={[rim, rim, width + 0.02, 24]} />
-        <Mat {...MAG} />
-      </mesh>
-      {/* Wheel centre, dished outboard. */}
-      <mesh position={[side * -(width / 2 + 0.005), 0, 0]} rotation={[0, 0, 0]}>
-        <cylinderGeometry args={[rim * 0.5, rim * 0.5, 0.02, 16]} />
-        <Mat color="#3a3a3e" metalness={0.6} roughness={0.6} />
-      </mesh>
-      <mesh position={[side * -(width / 2 + 0.03), 0, 0]}>
-        <cylinderGeometry args={[0.04, 0.04, 0.05, 6]} />
-        <Mat {...STEEL} />
-      </mesh>
     </group>
   )
 }
