@@ -273,7 +273,7 @@ export class Lotus49Sim implements Sim {
     const pedal = this.finished || keys.down('KeyS') ? 1 : 0
     this.throttle = THREE.MathUtils.clamp(this.throttle + (gas ? dt * 3.5 : -dt * 5), 0, 1)
     this.brakes = THREE.MathUtils.clamp(this.brakes + (pedal ? dt * 4 : -dt * 6), 0, 1)
-    this.steer = spring(this.steer, keys.axis(['ArrowLeft'], ['ArrowRight']), dt, 2.6, 4.5)
+    this.steer = spring(this.steer, keys.axis(['ArrowRight'], ['ArrowLeft']), dt, 2.6, 4.5)
 
     if (this.shift <= 0 && !this.finished) {
       if (keys.tapped('ArrowUp') && this.gear < 5) {

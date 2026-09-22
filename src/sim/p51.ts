@@ -438,14 +438,10 @@ export class P51Sim implements Sim {
     )
     this.groundPitch += (target - this.groundPitch) * (1 - Math.exp(-2.5 * dt))
 
-    // 1,490 hp against a fixed fin: the nose goes left, and you argue back.
-    // The swing needs the slipstream to exist, so it builds as she starts to
-    // roll, peaks around twenty knots, and fades once the fin bites. The
-    // tailwheel is steerable while it is on the ground and helps; once the
-    // tail is up it is the rudder alone.
+    // The tailwheel and rudder steer the aircraft during the ground roll.
+    // Throttle must not introduce steering input: W/S only control power.
     const tailDown = 1 - ramp(this.groundPitch, 0.02, P51_STANCE.pitch * 0.8)
-    const torque = -0.42 * this.throttle * ramp(V, 0.5, 9) * (1 - ramp(V, 12, 80))
-    const steering = this.pedal * (0.22 + 0.5 * ramp(V, 1, 30) + 0.3 * tailDown) + torque
+    const steering = this.pedal * (0.22 + 0.5 * ramp(V, 1, 30) + 0.3 * tailDown)
     this.att.heading += steering * dt * 0.5
     this.r = steering * 0.5
 
@@ -990,8 +986,8 @@ export class P51Sim implements Sim {
     if (this.phase === 'dead') return 'Wreckage. The fire will burn for a while yet.'
     if (this.phase === 'done') return 'Stopped, chocks in, engine ticking as it cools.'
     if (this.phase === 'ground') {
-      if (this.throttle < 0.2) return 'Brakes off, throttle up. She will pull left — hold her with the rudder.'
-      if (this.air.V < 30) return 'Rolling. Right rudder against the swing; the tail comes up at about 45 mph.'
+      if (this.throttle < 0.2) return 'Brakes off and throttle up. Use the rudder to steer.'
+      if (this.air.V < 30) return 'Rolling straight. The tail comes up at about 45 mph.'
       return 'Tail up and tracking. She will unstick at about 100 mph.'
     }
     if (this.stall > 0.35) return 'Stalled, and the wing has dropped. Stick forward, level her, let the speed build.'
@@ -1074,7 +1070,7 @@ export const p51Sim: SimDef = {
   title: 'Test Hop and Range Detail',
   place: 'A grass field with 1,500 metres of paving · 1944',
   briefing: [
-    'The aeroplane is at the threshold with the tail on the ground, which means you cannot see where you are going. Open the throttle slowly: 1,490 horsepower through a four-bladed propeller will try to take the nose to the left, and the rudder is how you argue back.',
+    'The aeroplane is at the threshold with the tail on the ground, which means you cannot see where you are going. Open the throttle slowly and use the rudder to keep her aligned with the runway.',
     'She comes unstuck at about a hundred miles an hour. Gear up before 170, flaps up before 165 — the manual is specific, and so is the airflow. Nothing about the controls is instant: the stick makes a moment, the moment turns four and a half tonnes, and above 300 mph you will not have the strength to pull full elevator anyway.',
     'Fly the four pylons, then come back over the field and make one pass down the gunnery range at the north end. Six half-inch Brownings, harmonised at 250 yards, and 1,880 rounds between them. The flak on the range is live, and it gets better the longer you stay.',
     'Then put her back on the paving. Everything on this field is solid — trees, poles, hangars, the tower — and at 300 mph none of it gives way.',

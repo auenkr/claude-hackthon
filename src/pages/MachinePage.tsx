@@ -24,6 +24,7 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
   const [explode, setExplode] = useState(0)
   const [xray, setXray] = useState(false)
   const [autoRotate, setAutoRotate] = useState(false)
+  const [focusedView, setFocusedView] = useState(false)
 
   const selectedPart = useMemo(
     () => machine.parts.find((p) => p.id === selected) ?? null,
@@ -36,7 +37,7 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
   return (
     <div className="flex h-full flex-col lg:flex-row">
       {/* ---------------------------------------------------------------- */}
-      <aside className="flex w-full shrink-0 flex-col border-rail/60 lg:h-full lg:w-[340px] lg:border-r">
+      {!focusedView && <aside className="flex w-full shrink-0 flex-col border-rail/60 lg:h-full lg:w-[340px] lg:border-r">
         <div className="border-b border-rail/60 p-5">
           <Link
             to="/"
@@ -102,10 +103,10 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
             </ul>
           </div>
         </div>
-      </aside>
+      </aside>}
 
       {/* ---------------------------------------------------------------- */}
-      <main className="vignette relative min-h-[55vh] flex-1 lg:h-full">
+      <main className="vignette relative min-h-[55vh] min-w-0 flex-1 lg:h-full">
         <Exhibit
           machine={machine}
           controls={controls}
@@ -114,6 +115,7 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
           explode={explode}
           xray={xray}
           autoRotate={autoRotate}
+          focusedView={focusedView}
         />
 
         {/* View controls, floating over the case. */}
@@ -149,6 +151,16 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
               >
                 Turntable
               </Toggle>
+              <Toggle
+                on={focusedView}
+                onClick={() => {
+                  setFocusedView(!focusedView)
+                  if (!focusedView) setSelected(null)
+                }}
+                accent={machine.accent}
+              >
+                {focusedView ? 'Exit zoom' : 'Zoom'}
+              </Toggle>
             </div>
           </div>
         </div>
@@ -159,7 +171,7 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
       </main>
 
       {/* ---------------------------------------------------------------- */}
-      <aside className="flex w-full shrink-0 flex-col border-rail/60 lg:h-full lg:w-[330px] lg:border-l">
+      {(!focusedView || selected) && <aside className="flex w-full shrink-0 flex-col border-rail/60 lg:h-full lg:w-[330px] lg:border-l">
         <div className="min-h-0 flex-1 space-y-7 overflow-y-auto p-5">
           <PartInspector
             part={selectedPart}
@@ -191,7 +203,7 @@ function Exhibition({ machine }: { machine: MachineSpec }) {
             →
           </span>
         </Link>
-      </aside>
+      </aside>}
     </div>
   )
 }
